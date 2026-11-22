@@ -36,6 +36,7 @@ test("recovers known coefficients with separate ride holdouts", () => {
   assert.ok(Math.abs(result.cda - cda) < 1e-8);
   assert.ok(Math.abs(result.crr - crr) < 1e-8);
   assert.equal(result.assumedCrr, false);
+  assert.equal(result.calibrationRides, 5);
   assert.equal(result.heldOutRides, 5);
   assert.ok(result.wattsError < 1e-7);
   assert.ok(result.timingErrorPct !== null && result.timingErrorPct < 0.001);
@@ -44,6 +45,7 @@ test("one-speed data uses the declared Crr and no empty selection produces a fit
   assert.equal(fit([], mass, crr), null);
   const result = fit([row(6, "r"), row(6, "r")], mass, crr)!;
   assert.equal(result.assumedCrr, true);
+  assert.equal(result.calibrationRides, 1);
   assert.equal(result.heldOutRides, 0);
   assert.ok(Math.abs(result.cda - cda) < 1e-8);
 });
@@ -53,6 +55,7 @@ test("prediction inverts measured power and responds to wind direction", () => {
     cda,
     crr,
     wattsError: 0,
+    calibrationRides: 1,
     heldOutRides: 0,
     timingErrorPct: null,
     assumedCrr: false,

@@ -49,6 +49,7 @@ export type Model = {
   mass: number;
   assumedCrr: boolean;
   wattsError: number;
+  calibrationRides: number;
   heldOutRides: number;
   timingErrorPct: number | null;
 };
@@ -175,7 +176,8 @@ export function fit(
   if (!model) return null;
   const errors: number[] = [],
     timingErrors: number[] = [];
-  for (const id of new Set(rows.map((r) => r.ride))) {
+  const rides = new Set(rows.map((r) => r.ride));
+  for (const id of rides) {
     const other = coefficients(
       rows.filter((r) => r.ride !== id),
       mass,
@@ -223,6 +225,7 @@ export function fit(
     wattsError: errors.length
       ? errors.reduce((a, b) => a + b, 0) / errors.length
       : 0,
+    calibrationRides: rides.size,
     heldOutRides: errors.length,
     timingErrorPct: timingErrors.length
       ? timingErrors.reduce((a, b) => a + b, 0) / timingErrors.length

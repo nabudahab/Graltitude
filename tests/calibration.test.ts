@@ -167,6 +167,7 @@ test("fits integrated work on varied laps and whole rides, holding out all laps 
   }
   assert.equal(rows.length, 7);
   const model = fit(rows, mass, 0.004)!;
+  assert.equal(model.calibrationRides, 4);
   assert.equal(model.heldOutRides, 4);
   assert.ok(Math.abs(model.cda - cda) < 1e-8);
   assert.ok(Math.abs(model.crr - crr) < 1e-8);
