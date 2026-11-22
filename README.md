@@ -2,7 +2,23 @@
 
 A mobile-friendly cycling calibration and climb planner. Select several bikes, review laps and whole rides with measured power, and compare flat-ground power and climb times. The sample workspace runs immediately with two bikes and synthetic rides. Live activities enter through Strava OAuth.
 
-## Run locally
+## Open Ride Lab on Windows, macOS or Linux
+
+Download the repository ZIP and extract it, or clone the repository. Both versions below open in your desktop browser. [Download Graltitude](https://github.com/nabudahab/Graltitude/archive/refs/heads/main.zip)
+
+**To try your rides with zero setup**, double-click **Graltitude.html** in the top folder.
+
+1. On the Strava website, open one of your own outdoor power-meter rides. Choose **… → Export GPX**. Repeat for a few rides on the same bike. Strava includes recorded power in its GPX export. [Strava export instructions](https://support.strava.com/en-us/articles/15401919-how-do-i-export-my-strava-data)
+2. In Ride Lab, enter the bike name and choose the ride files together. Mark group rides when importing them. Use a different bike name when importing rides for another bike.
+3. Enter your combined rider, bike and kit mass under **Bike setup**. Review the flagged rides and check the efforts you want to use. **Flat-ground power** shows the fitted predictions. To estimate a segment time, import a segment GPX with elevation and type your target watts.
+
+The portable file uses whole rides from GPX and runs the fit on your laptop. With an internet connection it can also look up weather. Offline rides are marked **Weather unknown** so you can decide whether to include them. Reopen your ride files after closing the app.
+
+**To sync directly with Strava**, open **Strava for Windows.cmd**, **Strava for Mac.command** or **Strava for Linux.sh** from the extracted folder. Linux file managers may call this **Run as a Program**. The launcher opens Ride Lab in your browser. The first launch downloads a verified runtime if one is needed. Keep the launcher window open while using the app.
+
+Click **Connect with Strava**. The first time, the app walks you through entering your own Strava Client ID and Client Secret and setting the callback domain to `127.0.0.1`. Strava requires a subscription to create an API application. Use **Strava settings** at the foot of the app to update these credentials. The app stores them in your user folder and keeps ride sessions in memory until you close the launcher. The sync imports your bike assignments, recorded laps and starred segments. [Strava API settings](https://www.strava.com/settings/api) · [Strava developer guide](https://developers.strava.com/docs/getting-started/)
+
+## Run the development version
 
 Use Node 24 and npm.
 
@@ -18,7 +34,9 @@ npm test
 npm run build
 ```
 
-## Try your own Strava rides on your laptop
+To regenerate the checked-in portable file after changing the app, run `npm run build:portable`.
+
+## Run live Strava sync with the development tools
 
 Graltitude runs the web app, API and session database on your computer. The browser runs the physics model. You need an internet connection for Strava and weather data.
 
