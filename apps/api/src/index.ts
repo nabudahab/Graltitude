@@ -286,14 +286,16 @@ async function route(req: Request, e: Env): Promise<Response> {
         (now() - 90 * 86400),
     );
     const rides = all
-      .filter((a) =>
-        [
-          "Ride",
-          "GravelRide",
-          "MountainBikeRide",
-          "Handcycle",
-          "Velomobile",
-        ].includes(a.sport_type),
+      .filter(
+        (a) =>
+          a.device_watts === true &&
+          [
+            "Ride",
+            "GravelRide",
+            "MountainBikeRide",
+            "Handcycle",
+            "Velomobile",
+          ].includes(a.sport_type),
       )
       .map((a) => ({
         id: a.id_str ?? String(a.id),
@@ -302,6 +304,7 @@ async function route(req: Request, e: Env): Promise<Response> {
         date: a.start_date,
         distance: a.distance,
         group: a.athlete_count > 1,
+        deviceWatts: true,
         windows: [],
       }));
     // Resolve equipment observed on this athlete's own rides. Keep ID labels
@@ -319,7 +322,7 @@ async function route(req: Request, e: Env): Promise<Response> {
     }
     return json({
       athlete: session.athlete,
-      more: all.length === 50,
+      more: page < 10 && all.length === 50,
       rides,
       gear,
     });
@@ -329,17 +332,26 @@ async function route(req: Request, e: Env): Promise<Response> {
     const prefix = "/activities/" + ride[1];
     const meta = await strava<{
       athlete: { id: number };
-      device_watts: boolean;
+      device_watts?: boolean;
     }>(prefix);
     if (String(meta.athlete.id) !== session.athlete)
       fail(403, "Select one of your own rides.");
-    if (!meta.device_watts) return json({ issue: "No measured power" });
-    return json({
-      streams: await strava(
-        prefix +
-          "/streams?keys=time,distance,altitude,watts,latlng,velocity_smooth,moving&key_by_type=true",
-      ),
+    if (meta.device_watts !== true)
+      return json({ eligible: false, issue: "No measured power" });
+    const streams = await strava<{ watts?: { data?: unknown } }>(
+      prefix +
+        "/streams?keys=time,distance,altitude,watts,latlng,velocity_smooth,moving&key_by_type=true",
+    ).catch((err: unknown) => {
+      if (err instanceof Response && err.status === 404) return null;
+      throw err;
     });
+    const watts = streams?.watts?.data;
+    if (
+      !Array.isArray(watts) ||
+      !watts.some((w) => Number.isFinite(w) && w >= 0)
+    )
+      return json({ eligible: false, issue: "No measured power stream" });
+    return json({ streams });
   }
   if (path === "/segments/starred") {
     const page = Number(u.searchParams.get("page") ?? 1);

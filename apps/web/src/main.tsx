@@ -167,13 +167,15 @@ function App() {
     [more, setMore] = useState(false),
     [page, setPage] = useState(1);
   const engine = useRef<Worker | null>(null),
-    busyRef = useRef(false);
+    busyRef = useRef(false),
+    ridesWithoutPower = useRef(new Set<string>());
   const allBikes = useMemo(
     () => [...bikes, ...prefs.extra],
     [bikes, prefs.extra],
   );
   const bikeFor = (r: Ride) => prefs.assign[r.id] ?? r.bike;
   const shown = rides.filter((r) => active.includes(bikeFor(r)) || !bikeFor(r));
+  const pendingRides = shown.filter((r) => !r.windows.length && !r.issue);
   useEffect(() => {
     try {
       localStorage.setItem("graltitude/" + owner, JSON.stringify(prefs));
@@ -233,13 +235,16 @@ function App() {
     const data = await api<{
       athlete: string;
       more: boolean;
-      rides: Ride[];
+      rides: (Ride & { deviceWatts: boolean })[];
       gear: Record<string, string>;
     }>("/rides?page=" + pageNumber);
+    const eligible = data.rides.filter(
+      (r) => r.deviceWatts === true && !ridesWithoutPower.current.has(r.id),
+    );
     const known = pageNumber === 1 ? [] : bikes;
     const fresh = [
       ...new Set(
-        data.rides
+        eligible
           .map((r) => r.bike)
           .filter((id) => id && !known.some((b) => b.id === id)),
       ),
@@ -261,10 +266,10 @@ function App() {
     );
     setRides((old) =>
       pageNumber === 1
-        ? data.rides
+        ? eligible
         : [
             ...old,
-            ...data.rides.filter((r) => !old.some((k) => k.id === r.id)),
+            ...eligible.filter((r) => !old.some((k) => k.id === r.id)),
           ],
     );
     setMore(data.more && pageNumber < 10);
@@ -285,9 +290,17 @@ function App() {
   }, []);
   async function analyze(r: Ride) {
     setStatus("Reviewing " + r.name + "…");
-    const data = await api<{ issue?: string; streams?: Streams }>(
-      "/rides/" + r.id,
-    );
+    const data = await api<{
+      eligible?: boolean;
+      issue?: string;
+      streams?: Streams;
+    }>("/rides/" + r.id);
+    if (data.eligible === false) {
+      ridesWithoutPower.current.add(r.id);
+      setRides((prev) => prev.filter((x) => x.id !== r.id));
+      setStatus(r.name + " was excluded because measured power is unavailable.");
+      return;
+    }
     const windows = data.streams
       ? await summarize(r.id, r.date, data.streams, r.group)
       : [];
@@ -478,13 +491,10 @@ function App() {
                 {live && (
                   <div className="actions">
                     <button
-                      disabled={busy}
+                      disabled={busy || !pendingRides.length}
                       onClick={() =>
                         run(async () => {
-                          for (const ride of shown.filter(
-                            (r) => !r.windows.length && !r.issue,
-                          ))
-                            await analyze(ride);
+                          for (const ride of pendingRides) await analyze(ride);
                         })
                       }
                     >
@@ -496,7 +506,11 @@ function App() {
                   </div>
                 )}
                 {!shown.length && (
-                  <p className="empty">No rides for the selected bikes.</p>
+                  <p className="empty">
+                    {live
+                      ? "No rides with measured power for the selected bikes on the loaded pages."
+                      : "No rides for the selected bikes."}
+                  </p>
                 )}
                 {shown.map((r) => {
                   const used = r.windows.filter((w) =>
