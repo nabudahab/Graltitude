@@ -8,6 +8,7 @@
   "triggers": { "crons": ["0 3 * * *"] },
   "vars": {
     "APP_URL": "http://127.0.0.1:4177/",
+    "PAGES_APP_URL": "https://nabudahab.github.io/Graltitude/",
     "STRAVA_CALLBACK_URL": "http://127.0.0.1:4177/auth/callback"
   },
   "d1_databases": [

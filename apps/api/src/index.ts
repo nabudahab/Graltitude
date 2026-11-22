@@ -1,6 +1,7 @@
 interface Env {
   DB: D1Database;
   APP_URL: string;
+  PAGES_APP_URL?: string;
   STRAVA_CALLBACK_URL?: string;
   STRAVA_CLIENT_ID: string;
   STRAVA_CLIENT_SECRET: string;
@@ -84,10 +85,10 @@ async function tokens(
     fail(401, "Strava authorization expired or was declined. Connect again.");
   return r.json();
 }
-async function route(req: Request, e: Env): Promise<Response> {
+async function route(req: Request, e: Env, appUrl: string, basePath: string): Promise<Response> {
   const u = new URL(req.url),
-    path = u.pathname;
-  const expected = new URL(e.APP_URL).origin;
+    path = u.pathname.slice(basePath.length);
+  const expected = new URL(appUrl).origin;
   if (req.headers.get("Origin") && req.headers.get("Origin") !== expected)
     fail(403, "Origin denied.");
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
@@ -101,14 +102,14 @@ async function route(req: Request, e: Env): Promise<Response> {
     const redirect = new URL("https://www.strava.com/oauth/authorize");
     redirect.search = new URLSearchParams({
       client_id: e.STRAVA_CLIENT_ID,
-      redirect_uri: e.STRAVA_CALLBACK_URL ?? u.origin + "/auth/callback",
+      redirect_uri: (!basePath && e.STRAVA_CALLBACK_URL) || u.origin + basePath + "/auth/callback",
       response_type: "code",
       scope: "read,activity:read,activity:read_all",
       state: nonce,
     }).toString();
     const cookie = await seal(
       e,
-      JSON.stringify({ nonce, challenge, exp: now() + 600 }),
+      JSON.stringify({ nonce, challenge, basePath, exp: now() + 600 }),
     );
     return new Response(null, {
       status: 302,
@@ -117,7 +118,7 @@ async function route(req: Request, e: Env): Promise<Response> {
         "Set-Cookie":
           "login=" +
           cookie +
-          "; HttpOnly; Secure; SameSite=Lax; Path=/auth; Max-Age=600",
+          `; HttpOnly; Secure; SameSite=Lax; Path=${basePath}/auth; Max-Age=600`,
       },
     });
   }
@@ -128,9 +129,9 @@ async function route(req: Request, e: Env): Promise<Response> {
     if (!cookie)
       fail(400, "Login timed out. Return to Graltitude and reconnect.");
     const login = JSON.parse(await open(e, cookie));
-    if (login.nonce !== u.searchParams.get("state") || login.exp < now())
+    if (login.nonce !== u.searchParams.get("state") || login.exp < now() || (login.basePath ?? "") !== basePath)
       fail(400, "Login timed out.");
-    const back = new URL(e.APP_URL);
+    const back = new URL(appUrl);
     if (
       !u.searchParams.get("code") ||
       !u.searchParams
@@ -177,7 +178,7 @@ async function route(req: Request, e: Env): Promise<Response> {
       headers: {
         Location: back.href,
         "Set-Cookie":
-          "login=; Max-Age=0; Path=/auth; HttpOnly; Secure; SameSite=Lax",
+          `login=; Max-Age=0; Path=${basePath}/auth; HttpOnly; Secure; SameSite=Lax`,
         "Referrer-Policy": "no-referrer",
       },
     });
@@ -195,7 +196,7 @@ async function route(req: Request, e: Env): Promise<Response> {
     if (!row) fail(401, "Login handoff expired. Connect again.");
     return json({ session: await open(e, row.session) });
   }
-  if (e.WEBHOOK_SECRET && path === "/events/" + e.WEBHOOK_SECRET) {
+  if (e.WEBHOOK_SECRET && u.pathname === "/events/" + e.WEBHOOK_SECRET) {
     if (
       req.method === "GET" &&
       u.searchParams.get("hub.verify_token") === e.WEBHOOK_SECRET
@@ -400,9 +401,12 @@ async function route(req: Request, e: Env): Promise<Response> {
 }
 export default {
   async fetch(req: Request, env: Env) {
+    // Each frontend has a fixed return URL, CORS origin and OAuth cookie path.
+    const pagesApp = new URL(req.url).pathname.startsWith("/pages/") && env.PAGES_APP_URL;
+    const appUrl = pagesApp || env.APP_URL;
     let res: Response;
     try {
-      res = await route(req, env);
+      res = await route(req, env, appUrl, pagesApp ? "/pages" : "");
     } catch (err) {
       res =
         err instanceof Response
@@ -417,7 +421,7 @@ export default {
     }
     const headers = new Headers(res.headers);
     headers.set("Cache-Control", "no-store");
-    headers.set("Access-Control-Allow-Origin", new URL(env.APP_URL).origin);
+    headers.set("Access-Control-Allow-Origin", new URL(appUrl).origin);
     headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type");
     return new Response(res.body, { status: res.status, headers });
