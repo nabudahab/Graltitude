@@ -1,4 +1,4 @@
-import { type Point, type Weather } from "../../../packages/physics/index";
+import type { Point, Weather } from "../../../packages/physics/index";
 type Hourly = {
   time: string[];
   wind_speed_10m: number[];

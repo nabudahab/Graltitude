@@ -330,9 +330,17 @@ async function route(req: Request, e: Env): Promise<Response> {
   const ride = path.match(/^\/rides\/(\d+)$/);
   if (ride) {
     const prefix = "/activities/" + ride[1];
+    type StravaLap = {
+      name?: string;
+      lap_index?: number;
+      start_index: number;
+      end_index: number;
+      device_watts?: boolean;
+    };
     const meta = await strava<{
       athlete: { id: number };
       device_watts?: boolean;
+      laps?: StravaLap[];
     }>(prefix);
     if (String(meta.athlete.id) !== session.athlete)
       fail(403, "Select one of your own rides.");
@@ -351,7 +359,18 @@ async function route(req: Request, e: Env): Promise<Response> {
       !watts.some((w) => Number.isFinite(w) && w >= 0)
     )
       return json({ eligible: false, issue: "No measured power stream" });
-    return json({ streams });
+    const laps = meta.laps ?? (await strava<StravaLap[]>(prefix + "/laps"));
+    if (!Array.isArray(laps)) fail(502, "Strava returned unreadable lap data.");
+    return json({
+      streams,
+      laps: laps.map((lap) => ({
+        name: lap?.name,
+        number: lap?.lap_index,
+        start: lap?.start_index,
+        end: lap?.end_index,
+        measured: lap?.device_watts,
+      })),
+    });
   }
   if (path === "/segments/starred") {
     const page = Number(u.searchParams.get("page") ?? 1);

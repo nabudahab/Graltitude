@@ -18,6 +18,11 @@ export type Course = { name: string; points: Point[]; located: boolean };
 export type Window = {
   id: string;
   ride: string;
+  label: string;
+  // Mean wheel-power terms over modeled samples. Rolling and load are per kg.
+  terms?: { aero: number; rolling: number; load: number };
+  legacyChoiceIds?: string[];
+  steadyClimb?: boolean;
   speed: number;
   grade: number;
   watts: number;
@@ -88,6 +93,26 @@ export function watts(
   const normal = (mass * gravity * v) / Math.hypot(1, grade);
   return (normal * (grade + crr) + cda * aero(v, heading, w)) / efficiency;
 }
+export function powerTerms(
+  speed: number,
+  grade: number,
+  heading: number,
+  weather: Weather,
+  kineticPowerPerKg: number,
+) {
+  const rolling = (gravity * speed) / Math.hypot(1, grade);
+  return {
+    aero: aero(speed, heading, weather),
+    rolling,
+    load: rolling * grade + kineticPowerPerKg,
+  };
+}
+function unitTerms(r: Window) {
+  return (
+    r.terms ??
+    powerTerms(r.speed, r.grade, r.heading, r.weather, r.accel * r.speed)
+  );
+}
 // Fit interval work with duration weights. If rolling and aero terms cannot be
 // separated, fix rolling resistance to the rider's assumption and fit CdA.
 function coefficients(rows: Window[], mass: number, fixedCrr: number) {
@@ -98,9 +123,10 @@ function coefficients(rows: Window[], mass: number, fixedCrr: number) {
     ay = 0,
     by = 0;
   for (const r of rows) {
-    const a = aero(r.speed, r.heading, r.weather),
-      b = (mass * gravity * r.speed) / Math.hypot(1, r.grade);
-    const y = r.watts * efficiency - b * r.grade - mass * r.accel * r.speed;
+    const terms = unitTerms(r);
+    const a = terms.aero,
+      b = mass * terms.rolling;
+    const y = r.watts * efficiency - mass * terms.load;
     aa += a * a * r.duration;
     ab += a * b * r.duration;
     bb += b * b * r.duration;
@@ -162,20 +188,19 @@ export function fit(
       actualClimbing = 0,
       predictedClimbing = 0;
     for (const r of held) {
+      const terms = unitTerms(r);
       const predicted =
-        watts(
-          r.speed,
-          r.grade,
-          mass,
-          other.cda,
-          other.crr,
-          r.heading,
-          r.weather,
-        ) +
-        (mass * r.accel * r.speed) / efficiency;
+        (other.cda * terms.aero +
+          mass * (other.crr * terms.rolling + terms.load)) /
+        efficiency;
       joules += Math.abs(r.watts - predicted) * r.duration;
       seconds += r.duration;
-      if (r.grade >= 0.02 && Math.abs(r.accel) < 0.015 && !r.flags.length) {
+      if (
+        r.steadyClimb !== false &&
+        r.grade >= 0.02 &&
+        Math.abs(r.accel) < 0.015 &&
+        !r.flags.length
+      ) {
         actualClimbing += r.duration;
         const v = steadySpeed(
           mass,
