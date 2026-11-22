@@ -423,9 +423,7 @@ function App() {
         <div className="intro">
           <div>
             <div className="kicker">CYCLING PHYSICS</div>
-            <h1>
-              Ride lab<span>.</span>
-            </h1>
+            <h1>Graltitude</h1>
             <p>Calibrate your bikes and plan the next climb.</p>
           </div>
           <div className="tabset" aria-label="Workspace view">
@@ -457,7 +455,7 @@ function App() {
                 <h2>{apiBase ? "Sync your Strava rides" : "Add your rides"}</h2>
                 {apiBase ? (
                   <p>Select <b>Connect with Strava</b> and authorize activity access.
-                    Ride Lab loads recent rides with recorded power and groups them by bike.</p>
+                    Graltitude loads recent rides with recorded power and groups them by bike.</p>
                 ) : portable && (
                   <p>In the extracted Graltitude folder, open <b>Strava for Windows.cmd</b>,{" "}
                     <b>Strava for Mac.command</b> or <b>Strava for Linux.sh</b>.
@@ -941,7 +939,7 @@ function App() {
         </div>
       </main>
       <footer>
-        <span>Graltitude · Ride lab</span>
+        <span>Graltitude</span>
         {portable && apiBase === "." && <a href="/desktop/settings">Strava settings</a>}
         <span>
           {live && "Powered by Strava · "}

@@ -81,7 +81,7 @@ function setup(challenge) {
     <label>Client ID<input name="id" inputmode="numeric" pattern="[0-9]+" required></label>
     <label>Client Secret<input name="secret" type="password" required></label>
     <p>Graltitude saves these app credentials in your user folder on this laptop.</p>
-    <button>${challenge ? "Save and connect with Strava" : "Save settings"}</button></form><a href="/">Back to Ride Lab</a></html>`,
+    <button>${challenge ? "Save and connect with Strava" : "Save settings"}</button></form><a href="/">Back to Graltitude</a></html>`,
     {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
@@ -209,7 +209,7 @@ server.listen(port, "127.0.0.1", () => {
   console.log(
     "Open " +
       origin +
-      "/ in your browser. Keep this window open while using Ride Lab.",
+      "/ in your browser. Keep this window open while using Graltitude.",
   );
   if (process.argv.includes("--no-browser")) return;
   const [command, ...args] =

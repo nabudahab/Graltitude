@@ -2,12 +2,12 @@
 
 A mobile-friendly cycling calibration and climb planner. Connect Strava or import power-meter GPX rides to populate your workspace. Select several bikes, review laps and whole rides with measured power, and compare flat-ground power and climb times.
 
-[Open Graltitude in your browser](https://nabudahab.github.io/Graltitude/). Choose **Connect with Strava**, authorize activity access, and select a bike in Ride Lab. The browser runs the physics model.
+[Open Graltitude in your browser](https://nabudahab.github.io/Graltitude/). Choose **Connect with Strava**, authorize activity access, and select a bike. The browser runs the physics model.
 
-## Open Ride Lab on Windows, macOS or Linux
+## Open Graltitude on Windows, macOS or Linux
 
 1. Extract the Graltitude ZIP. Open **Strava for Windows.cmd**, **Strava for Mac.command** or **Strava for Linux.sh**. On Linux, choose **Run as a Program** if prompted. The launcher opens your browser and handles the runtime on first use. Keep its window open.
-2. Select **Connect with Strava** and authorize Graltitude to read your activities. Ride Lab lists recent outdoor rides with measured power and groups them by bike.
+2. Select **Connect with Strava** and authorize Graltitude to read your activities. Graltitude lists recent outdoor rides with measured power and groups them by bike.
 3. Choose your bike, enter your combined rider, bike and kit mass, then use **Analyze ride** or **Analyze selected bikes**. Review the laps or whole rides and check the efforts you want to use.
 
 If the owner sent you **Graltitude-Strava.zip**, shared sign-in is configured inside it. The general GitHub ZIP uses your own Strava API application and prompts for its Client ID and Client Secret on first connect. Strava requires a subscription to register an API application. [Download the general ZIP](https://github.com/nabudahab/Graltitude/archive/refs/heads/main.zip) · [Strava developer guide](https://developers.strava.com/docs/getting-started/)
