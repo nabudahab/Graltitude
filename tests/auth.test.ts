@@ -86,6 +86,7 @@ test("Strava session lifecycle", async (t) => {
           id: 12,
           name: "Solo climb",
           sport_type: "Ride",
+          device_watts: true,
           gear_id: "b2",
           athlete_count: 1,
           distance: 5000,
@@ -132,6 +133,77 @@ test("Strava session lifecycle", async (t) => {
   assert.equal(rides.athlete, "7");
   assert.equal(rides.rides[0].bike, "b2");
   assert.equal((await call("/rides/99", { headers })).status, 403);
+  await t.test("ride pages filter before gear lookups and paginate raw activities", async (t) => {
+    const activity = { id: 1, sport_type: "Ride", gear_id: "b3", average_watts: 190 };
+    const calls: string[] = [];
+    t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      calls.push(url.pathname);
+      if (url.pathname.endsWith("/gear/b2")) return Response.json({ name: "Road" });
+      assert.equal(url.pathname, "/api/v3/athlete/activities");
+      assert.equal(url.searchParams.get("per_page"), "50");
+      return Response.json(url.searchParams.get("page") === "2" ? [
+        activity,
+        { ...activity, device_watts: false },
+        { ...activity, device_watts: "true" },
+        { ...activity, device_watts: true, sport_type: "Run" },
+        { ...activity, id: 5, device_watts: true, sport_type: "GravelRide", gear_id: "b2" },
+      ] : Array(50).fill(activity));
+    });
+    for (const page of [1, 10]) {
+      const response = await call("/rides?page=" + page, { headers });
+      assert.deepEqual(await response.json(), {
+        athlete: "7", rides: [], more: page === 1, gear: {},
+      });
+    }
+    const response = await call("/rides?page=2", { headers });
+    const data = await response.json() as {
+      more: boolean;
+      gear: Record<string, string>;
+      rides: { id: string; deviceWatts: boolean }[];
+    };
+    assert.deepEqual(data.rides.map((r) => [r.id, r.deviceWatts]), [["5", true]]);
+    assert.deepEqual(data.gear, { b2: "Road" });
+    assert.equal(data.more, false);
+    assert.deepEqual(calls, [
+      ...Array(3).fill("/api/v3/athlete/activities"), "/api/v3/gear/b2",
+    ]);
+  });
+  await t.test("analysis requires confirmed device power and a numeric watts stream", async (t) => {
+    let powerFlag: unknown;
+    let upstream = Response.json({});
+    let streamCalls = 0;
+    t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/api/v3/activities/12")
+        return Response.json({ athlete: { id: 7 }, device_watts: powerFlag, average_watts: 200 });
+      assert.equal(url.pathname, "/api/v3/activities/12/streams");
+      streamCalls++;
+      return upstream.clone();
+    });
+    const analyze = () => call("/rides/12", { headers });
+    for (powerFlag of [undefined, null, false, "true", 1]) {
+      assert.deepEqual(await (await analyze()).json(), {
+        eligible: false, issue: "No measured power",
+      });
+    }
+    assert.equal(streamCalls, 0);
+    powerFlag = true;
+    for (upstream of [
+      new Response(null, { status: 404 }), Response.json({}),
+      Response.json({ watts: { data: [] } }), Response.json({ watts: { data: [null, "200"] } }),
+    ]) {
+      assert.deepEqual(await (await analyze()).json(), {
+        eligible: false, issue: "No measured power stream",
+      });
+    }
+    upstream = new Response(null, { status: 429 });
+    assert.equal((await analyze()).status, 429);
+    const streams = { watts: { data: [0, 200] } };
+    upstream = Response.json(streams);
+    const result = await (await analyze()).json() as { streams: unknown };
+    assert.deepEqual(result.streams, streams);
+  });
   assert.ok(
     !JSON.stringify(db.prepare("SELECT * FROM sessions").all()).includes(
       "refresh-fixture",
