@@ -56,6 +56,13 @@ test("Strava session lifecycle", async (t) => {
     assert.equal(response.headers.get("location"), null);
   }
   const start = await call(loginPath);
+  const desktopCallback = "http://127.0.0.1:4177/auth/callback";
+  assert.equal(new URL(start.headers.get("location")!).searchParams.get("redirect_uri"), "https://api.example/auth/callback");
+  const desktop = await worker.fetch(
+    new Request("https://api.example" + loginPath),
+    { ...env, STRAVA_CALLBACK_URL: desktopCallback } as unknown as Environment,
+  );
+  assert.equal(new URL(desktop.headers.get("location")!).searchParams.get("redirect_uri"), desktopCallback);
   assert.equal(new URL(start.headers.get("location")!).searchParams.get("client_id"), env.STRAVA_CLIENT_ID);
   const state = new URL(start.headers.get("location")!).searchParams.get(
     "state",

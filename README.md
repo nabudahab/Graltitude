@@ -14,7 +14,7 @@ If the owner sent you **Graltitude-Strava.zip**, shared sign-in is configured in
 
 The owner hosts the existing Graltitude API Worker once. Your friend runs the launcher on their laptop and signs in with their ordinary Strava account. The Worker stores the app secret and handles API requests. The laptop fits the model.
 
-1. In your Strava API settings, enable the ten-athlete capacity if your app is still in single-athlete mode. Set the authorization callback domain to your Worker's hostname. [Strava API settings](https://www.strava.com/settings/api)
+1. In your Strava API settings, enable the ten-athlete capacity if your app is still in single-athlete mode. Strava accepts the launcher's loopback address as a callback. The launcher forwards the authorization response to the packaged Worker for the token exchange. [Strava API settings](https://www.strava.com/settings/api) · [Strava authentication](https://developers.strava.com/docs/authentication/)
 2. Use `apps/api/wrangler.shared.jsonc` for the desktop Worker. Its D1 database is `graltitude-desktop-sessions`, and its allowed origin and sign-in return address are `http://127.0.0.1:4177/`. Create the database, apply its migration, deploy the Worker with the four secrets listed under **Enable live Strava access**, and register the Strava webhook.
 3. From a checkout containing the committed portable app, run the following command with the HTTPS origin of your deployed Worker.
 
@@ -72,10 +72,10 @@ To test a prediction, leave one separate ride unchecked. Choose a steady climb f
 
 When you're ready to publish, select **Settings → Pages → Source → GitHub Actions**, then **Actions → Deploy Graltitude to Pages → Run workflow**. This manual workflow tests, builds, and publishes the app.
 
-## Enable live Strava access
+## Enable live Strava access for GitHub Pages
 
 1. Register a Strava API application. Set its authorization callback domain to the hostname of your Cloudflare Worker. To connect a small group, enable the ten-athlete capacity in your Strava dashboard.
-2. Authenticate Wrangler with `npx wrangler login`. Create the database with `npx wrangler d1 create graltitude` and put the returned database ID in `apps/api/wrangler.jsonc`. Set `APP_URL` to the full Pages URL with its trailing slash for web hosting, or `http://127.0.0.1:4177/` for a shared portable package.
+2. Authenticate Wrangler with `npx wrangler login`. Create the database with `npx wrangler d1 create graltitude` and put the returned database ID in `apps/api/wrangler.jsonc`. Set `APP_URL` to the full Pages URL with its trailing slash.
 3. Apply the schema with `npx wrangler d1 migrations apply graltitude --remote --config apps/api/wrangler.jsonc`.
 4. Set each Worker secret using `npx wrangler secret put NAME --config apps/api/wrangler.jsonc`. Use `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `TOKEN_KEY` (a base64-encoded 32-byte AES key, e.g. generated with `openssl rand -base64 32`), and `WEBHOOK_SECRET` (a random URL-safe verification token). Keep all four on the Worker.
 5. Run `npm run api:deploy`. For a Pages deployment, set the GitHub repository **Actions variable** `VITE_API_URL` to the Worker HTTPS origin and rerun the Pages workflow. Only this public URL belongs in the frontend build.

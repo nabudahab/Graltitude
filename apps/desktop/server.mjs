@@ -104,7 +104,20 @@ async function route(req) {
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
-  if (sharedApi) return new Response("Unknown endpoint.", { status: 404 });
+  if (sharedApi) {
+    if (req.method === "GET" && url.pathname === "/auth/callback") {
+      const callback = new URL("/auth/callback", sharedApi);
+      for (const key of ["code", "scope", "state", "error"]) {
+        const value = url.searchParams.get(key);
+        if (value !== null) callback.searchParams.set(key, value);
+      }
+      return new Response(null, {
+        status: 302,
+        headers: { Location: callback.href, "Referrer-Policy": "no-referrer" },
+      });
+    }
+    return new Response("Unknown endpoint.", { status: 404 });
+  }
   const challenge = url.searchParams.get("challenge") ?? "";
   if (req.method === "GET" && url.pathname === "/desktop/settings")
     return setup("");

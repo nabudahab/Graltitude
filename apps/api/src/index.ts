@@ -1,6 +1,7 @@
 interface Env {
   DB: D1Database;
   APP_URL: string;
+  STRAVA_CALLBACK_URL?: string;
   STRAVA_CLIENT_ID: string;
   STRAVA_CLIENT_SECRET: string;
   TOKEN_KEY: string;
@@ -100,7 +101,7 @@ async function route(req: Request, e: Env): Promise<Response> {
     const redirect = new URL("https://www.strava.com/oauth/authorize");
     redirect.search = new URLSearchParams({
       client_id: e.STRAVA_CLIENT_ID,
-      redirect_uri: u.origin + "/auth/callback",
+      redirect_uri: e.STRAVA_CALLBACK_URL ?? u.origin + "/auth/callback",
       response_type: "code",
       scope: "read,activity:read,activity:read_all",
       state: nonce,
