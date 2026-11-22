@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { api, apiBase, connect } from "./api";
 import { parseGpx, segmentId, stravaCourse } from "./course";
-import { exampleCourse } from "./sample";
 import type { Course } from "../../../packages/physics/index";
 import type { Streams } from "./streams";
 
@@ -128,15 +127,6 @@ export function SegmentImport({ live, busy, choose, run }: Props) {
             }}
           />
         </label>
-        <button
-          disabled={busy}
-          onClick={() => {
-            setError("");
-            choose(exampleCourse);
-          }}
-        >
-          Sample ascent
-        </button>
       </div>
       {error && (
         <p className="notice" role="alert">
