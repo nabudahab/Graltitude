@@ -34,6 +34,7 @@ const model: Model = {
   crr: 0.005,
   assumedCrr: false,
   wattsError: 8,
+  calibrationRides: 2,
   heldOutRides: 2,
   timingErrorPct: null,
 };

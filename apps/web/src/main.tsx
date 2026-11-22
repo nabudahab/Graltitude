@@ -688,7 +688,7 @@ function App() {
                   <div className="setup" key={b.id}>
                     <strong>{b.name}</strong>
                     <NumberSetting
-                      label="Total mass (kg)"
+                      label="Rider + bike + kit (kg)"
                       value={prefs.mass[b.id] ?? b.mass}
                       min={25}
                       max={250}
@@ -701,7 +701,7 @@ function App() {
                       }
                     />
                     <NumberSetting
-                      label="Fallback Crr"
+                      label="Default rolling resistance (Crr)"
                       value={prefs.crr[b.id] ?? 0.005}
                       min={0.001}
                       max={0.035}
@@ -716,8 +716,9 @@ function App() {
                   </div>
                 ))}
               <small>
-                Use rider + bike + kit mass. Edit the starting estimate before
-                calibrating.
+                The model uses the mass you enter. It estimates rolling
+                resistance from your rides when it can separate it from air
+                drag. Otherwise it uses your default.
               </small>
             </section>
           </div>
@@ -801,32 +802,44 @@ function App() {
                     <small>
                       CdA {r.model.cda.toFixed(3)} m² · Crr{" "}
                       {r.model.crr.toFixed(4)}
-                      {r.model.assumedCrr ? " (assumed)" : ""}
+                      {r.model.assumedCrr ? " (bike setup default)" : " (from rides)"}
                     </small>
                   )}
                 </div>
               ))}
             </section>
             <section className="panel">
-              <h2>Model checks</h2>
+              <h2>Calibration and accuracy</h2>
+              <p className="check">
+                Each bike uses all its selected efforts. To check accuracy, we
+                take out one ride at a time and predict it from the other rides.
+              </p>
               {results.map((r) => (
                 <p className="check" key={r.id}>
                   <b>{allBikes.find((b) => b.id === r.id)?.name}</b>
                   <br />
-                  {r.model?.heldOutRides
-                    ? `Mean power error ${r.model.wattsError.toFixed(1)} W across ${r.model.heldOutRides} held-out rides.`
-                    : "More independent rides are needed for validation."}
+                  {r.model ? (
+                    <>
+                      Calibrated with {r.model.calibrationRides}{" "}
+                      {r.model.calibrationRides === 1 ? "ride" : "rides"}.
+                      <br />
+                      {r.model.heldOutRides
+                        ? `Average power error of ${r.model.wattsError.toFixed(1)} W across ${r.model.heldOutRides} ${r.model.heldOutRides === 1 ? "ride" : "rides"} checked.`
+                        : "Select another usable ride to check accuracy."}
+                    </>
+                  ) : "Select usable efforts from this bike to calibrate it."}
                   {r.model?.timingErrorPct != null &&
-                    " Held-out climbing efforts had " +
+                    " Average time error on steady climbs was " +
                       r.model.timingErrorPct.toFixed(1) +
-                      "% mean absolute time error."}
+                      "%."}
                   {r.model?.assumedCrr &&
                     " Add a sheltered loop at several speeds to separate drag from rolling resistance."}
                 </p>
               ))}
               <small>
-                Time ranges vary power by the held-out error. Forecast and route
-                errors may widen them.
+                Segment time ranges show how the estimate changes if your power
+                is higher or lower by the average error. Wind and route errors
+                can also affect your time.
               </small>
             </section>
           </aside>
