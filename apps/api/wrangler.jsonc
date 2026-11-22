@@ -1,0 +1,15 @@
+{
+  "name": "graltitude-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "triggers": { "crons": ["0 3 * * *"] },
+  "vars": { "APP_URL": "https://nabudahab.github.io/Graltitude/" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "graltitude",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+}
