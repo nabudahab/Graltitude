@@ -91,6 +91,27 @@ test("Strava session lifecycle", async (t) => {
           distance: 5000,
         },
       ]);
+    if (u.endsWith("/activities/12"))
+      return Response.json({
+        athlete: { id: 7 },
+        device_watts: true,
+        laps: [
+          {
+            name: "Warm-up",
+            lap_index: 1,
+            start_index: 0,
+            end_index: 73,
+            device_watts: true,
+          },
+        ],
+      });
+    if (u.endsWith("/activities/13"))
+      return Response.json({ athlete: { id: 7 }, device_watts: true });
+    if (u.endsWith("/activities/13/laps")) return Response.json([]);
+    if (/activities\/(12|13)\/streams\?/.test(u))
+      return Response.json({ watts: { data: [200, 210] } });
+    if (u.endsWith("/activities/14"))
+      return Response.json({ athlete: { id: 7 }, device_watts: false });
     if (u.endsWith("/activities/99"))
       return Response.json({ athlete: { id: 99 }, device_watts: true });
     throw Error("Unexpected upstream call");
@@ -131,6 +152,18 @@ test("Strava session lifecycle", async (t) => {
   });
   assert.equal(rides.athlete, "7");
   assert.equal(rides.rides[0].bike, "b2");
+  const streams = { watts: { data: [200, 210] } };
+  assert.deepEqual(await (await call("/rides/12", { headers })).json(), {
+    streams,
+    laps: [{ name: "Warm-up", number: 1, start: 0, end: 73, measured: true }],
+  });
+  assert.deepEqual(await (await call("/rides/13", { headers })).json(), {
+    streams,
+    laps: [],
+  });
+  assert.deepEqual(await (await call("/rides/14", { headers })).json(), {
+    issue: "No measured power",
+  });
   assert.equal((await call("/rides/99", { headers })).status, 403);
   assert.ok(
     !JSON.stringify(db.prepare("SELECT * FROM sessions").all()).includes(

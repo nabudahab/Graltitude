@@ -13,7 +13,12 @@ import { sampleBikes, sampleRides, exampleCourse } from "./sample";
 import { api, connect, resume } from "./api";
 import { SegmentImport } from "./SegmentImport";
 import { weatherAt } from "./weather";
-import { summarize, type Streams } from "./streams";
+import {
+  analyzeRide,
+  included,
+  previouslyExcluded,
+  type RideDetail,
+} from "./streams";
 import "./style.css";
 
 type Prefs = {
@@ -48,7 +53,7 @@ function duration(s: number) {
   );
 }
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const selected = (r: Window, p: Prefs) => p.choices[r.id] ?? !r.flags.length;
+const selected = (r: Window, p: Prefs) => included(r, p.choices);
 function Mark() {
   return (
     <svg
@@ -284,24 +289,10 @@ function App() {
   }, []);
   async function analyze(r: Ride) {
     setStatus("Reviewing " + r.name + "…");
-    const data = await api<{ issue?: string; streams?: Streams }>(
-      "/rides/" + r.id,
-    );
-    const windows = data.streams
-      ? await summarize(r.id, r.date, data.streams, r.group)
-      : [];
+    const data = await api<RideDetail>("/rides/" + r.id);
+    const analysis = await analyzeRide(r, data, prefs.choices);
     setRides((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? {
-              ...x,
-              windows,
-              issue: windows.length
-                ? undefined
-                : data.issue || "No usable measured intervals",
-            }
-          : x,
-      ),
+      prev.map((x) => (x.id === r.id ? { ...x, ...analysis } : x)),
     );
     setStatus("");
   }
@@ -472,7 +463,9 @@ function App() {
                     <div className="kicker">RIDE SELECTION</div>
                     <h2>Calibration rides</h2>
                   </div>
-                  <small>{total} intervals in use</small>
+                  <small>
+                    {total} {total === 1 ? "effort" : "efforts"} in use
+                  </small>
                 </div>
                 {live && (
                   <div className="actions">
@@ -507,7 +500,7 @@ function App() {
                     <article className="ride" key={r.id}>
                       <div className="rideRow">
                         <input
-                          aria-label={"Include all intervals from " + r.name}
+                          aria-label={"Include all efforts from " + r.name}
                           type="checkbox"
                           ref={(el) => {
                             if (el)
@@ -541,13 +534,15 @@ function App() {
                           }
                         >
                           {r.issue
-                            ? "Unavailable"
+                            ? r.windows.length
+                              ? "Review"
+                              : "Unavailable"
                             : r.group
                               ? "Group ride"
                               : flags.length
                                 ? "Review"
                                 : r.windows.length
-                                  ? "Steady"
+                                  ? "Ready"
                                   : "Unreviewed"}
                         </span>
                       </div>
@@ -586,7 +581,7 @@ function App() {
                               Analyze ride
                             </button>
                           )}
-                          {r.windows.map((w, i) => (
+                          {r.windows.map((w) => (
                             <label className="interval" key={w.id}>
                               <input
                                 type="checkbox"
@@ -594,10 +589,14 @@ function App() {
                                 onChange={(e) => include([w], e.target.checked)}
                               />
                               <span>
-                                Interval {i + 1} · {Math.round(w.watts)} W ·{" "}
-                                {(w.grade * 100).toFixed(1)}%
+                                {w.label} · {Math.round(w.watts)} W avg ·{" "}
+                                {(w.grade * 100).toFixed(1)}% avg grade
                                 <small>
-                                  {w.flags.join(" · ") || "Steady effort"} ·{" "}
+                                  {w.flags.length > 0 &&
+                                    w.flags.join(" · ") + " · "}
+                                  {prefs.choices[w.id] === undefined &&
+                                    previouslyExcluded(w, prefs.choices) &&
+                                    "Previously excluded effort · "}
                                   {w.duration} s
                                 </small>
                               </span>
@@ -758,7 +757,7 @@ function App() {
                   )}
                   {!r.model && (
                     <small>
-                      Select more usable intervals to fit this bike.
+                      Select more usable laps or rides to fit this bike.
                     </small>
                   )}
                 </div>
@@ -804,7 +803,7 @@ function App() {
                     ? `Mean power error ${r.model.wattsError.toFixed(1)} W across ${r.model.heldOutRides} held-out rides.`
                     : "More independent rides are needed for validation."}
                   {r.model?.timingErrorPct != null &&
-                    " Held-out climb intervals: " +
+                    " Held-out climbing efforts had " +
                       r.model.timingErrorPct.toFixed(1) +
                       "% mean absolute time error."}
                   {r.model?.assumedCrr &&

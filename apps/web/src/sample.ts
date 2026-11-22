@@ -23,14 +23,16 @@ export const sampleRides: Ride[] = names.map((name, i) => {
   const bike = sampleBikes[i % 2],
     id = "sample-" + i,
     group = i === 2;
+  const whole = i >= 6;
+  const distance = 21500 + i * 2900;
   return {
     id,
     name,
     bike: bike.id,
     date: new Date(Date.UTC(2026, 10, 20 - i)).toISOString(),
-    distance: 21500 + i * 2900,
+    distance,
     group,
-    windows: Array.from({ length: 4 }, (_, k) => {
+    windows: Array.from({ length: whole ? 1 : 4 }, (_, k) => {
       const speed = 5.7 + k * 1.55 + (i % 3) * 0.3,
         grade = [0.067, 0.034, 0.012, 0.002][k];
       const weather = {
@@ -40,7 +42,11 @@ export const sampleRides: Ride[] = names.map((name, i) => {
         gust: 2.5,
       };
       return {
-        id: id + "-" + k,
+        id: whole ? id + ":whole" : id + "-" + k,
+        label: whole ? "Whole ride" : "Lap " + (k + 1),
+        legacyChoiceIds: whole
+          ? [0, 1, 2, 3].map((n) => id + "-" + n)
+          : undefined,
         ride: id,
         speed,
         grade,
@@ -55,7 +61,7 @@ export const sampleRides: Ride[] = names.map((name, i) => {
             weather,
           ) *
           (1 + 0.018 * Math.sin(k + i)),
-        duration: 80,
+        duration: Math.round(distance / (whole ? 1 : 4) / speed),
         accel: 0,
         heading: 125,
         weather,

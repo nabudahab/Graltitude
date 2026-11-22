@@ -16,6 +16,7 @@ function row(speed: number, id: string, grade = 0.035): Window {
   return {
     id,
     ride: id,
+    label: "Whole ride",
     accel: 0,
     heading: 25,
     duration: 90,
