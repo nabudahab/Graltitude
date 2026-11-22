@@ -2,6 +2,8 @@
 
 A mobile-friendly cycling calibration and climb planner. Select several bikes, review laps and whole rides with measured power, and compare flat-ground power and climb times. The sample workspace runs immediately with two bikes and synthetic rides. Live activities enter through Strava OAuth.
 
+[Open Graltitude in your browser](https://nabudahab.github.io/Graltitude/). Choose **Connect with Strava**, authorize activity access, and select a bike in Ride Lab. The browser runs the physics model.
+
 ## Open Ride Lab on Windows, macOS or Linux
 
 1. Extract the Graltitude ZIP. Open **Strava for Windows.cmd**, **Strava for Mac.command** or **Strava for Linux.sh**. On Linux, choose **Run as a Program** if prompted. The launcher opens your browser and handles the runtime on first use. Keep its window open.
@@ -15,7 +17,7 @@ If the owner sent you **Graltitude-Strava.zip**, shared sign-in is configured in
 The owner hosts the existing Graltitude API Worker once. Your friend runs the launcher on their laptop and signs in with their ordinary Strava account. The Worker stores the app secret and handles API requests. The laptop fits the model.
 
 1. In your Strava API settings, enable the ten-athlete capacity if your app is still in single-athlete mode. Strava accepts the launcher's loopback address as a callback. The launcher forwards the authorization response to the packaged Worker for the token exchange. [Strava API settings](https://www.strava.com/settings/api) · [Strava authentication](https://developers.strava.com/docs/authentication/)
-2. Use `apps/api/wrangler.shared.jsonc` for the desktop Worker. Its D1 database is `graltitude-desktop-sessions`, and its allowed origin and sign-in return address are `http://127.0.0.1:4177/`. Create the database, apply its migration, deploy the Worker with the four secrets listed under **Enable live Strava access**, and register the Strava webhook.
+2. Use `apps/api/wrangler.shared.jsonc` for the shared Worker. Its D1 database is `graltitude-desktop-sessions`, and desktop sign-in returns to `http://127.0.0.1:4177/`. Create the database, apply its migration, deploy the Worker with the four secrets listed in the standalone Worker setup below, and register the Strava webhook.
 3. From a checkout containing the committed portable app, run the following command with the HTTPS origin of your deployed Worker.
 
    ```sh
@@ -70,9 +72,11 @@ To test a prediction, leave one separate ride unchecked. Choose a steady climb f
 
 ## Deploy the web app
 
-When you're ready to publish, select **Settings → Pages → Source → GitHub Actions**, then **Actions → Deploy Graltitude to Pages → Run workflow**. This manual workflow tests, builds, and publishes the app.
+Select **Actions → Deploy Graltitude to Pages → Run workflow** to publish an update. The repository uses **GitHub Actions** as its Pages source. The manual workflow tests, builds, and publishes the app.
 
-## Enable live Strava access for GitHub Pages
+The hosted frontend uses the existing shared Worker and session database. The repository's `VITE_API_URL` Actions variable points to `https://graltitude-desktop-sync.graltitude.workers.dev/pages`. The Worker returns web sign-ins to the project URL configured in `PAGES_APP_URL`. Register `graltitude-desktop-sync.graltitude.workers.dev` as the authorization callback domain in the Strava app settings. Desktop sign-ins continue through the loopback callback.
+
+## Set up a standalone API Worker for another Pages deployment
 
 1. Register a Strava API application. Set its authorization callback domain to the hostname of your Cloudflare Worker. To connect a small group, enable the ten-athlete capacity in your Strava dashboard.
 2. Authenticate Wrangler with `npx wrangler login`. Create the database with `npx wrangler d1 create graltitude` and put the returned database ID in `apps/api/wrangler.jsonc`. Set `APP_URL` to the full Pages URL with its trailing slash.

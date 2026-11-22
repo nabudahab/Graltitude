@@ -263,4 +263,42 @@ test("Strava session lifecycle", async (t) => {
     200,
   );
   assert.equal((await call("/rides", { headers })).status, 401);
+
+  await t.test("Pages sign-in returns to the project URL and syncs from the hosted origin", async () => {
+    const pages = "https://owner.github.io/Graltitude/";
+    const desktop = "http://127.0.0.1:4177/";
+    const shared = {
+      ...env, APP_URL: desktop, STRAVA_CALLBACK_URL: desktopCallback, PAGES_APP_URL: pages,
+    } as unknown as Environment;
+    const request = (path: string, init?: RequestInit) =>
+      worker.fetch(new Request("https://api.example" + path, init), shared);
+    const Origin = new URL(pages).origin;
+    const preflight = await request("/pages/auth/exchange", { method: "OPTIONS", headers: { Origin } });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), Origin);
+    assert.equal((await request("/pages/rides", { headers: { Origin: new URL(desktop).origin } })).status, 403);
+    assert.equal((await request("/rides", { headers: { Origin } })).status, 403);
+    const begin = await request("/pages" + loginPath);
+    const authorize = new URL(begin.headers.get("location")!);
+    assert.equal(authorize.searchParams.get("redirect_uri"), "https://api.example/pages/auth/callback");
+    const cookie = begin.headers.get("set-cookie")!;
+    assert.match(cookie, /Path=\/pages\/auth;/);
+    const withCookie = { headers: { Cookie: cookie.split(";")[0] } };
+    const callbackPath = path + authorize.searchParams.get("state");
+    assert.equal((await request(callbackPath, withCookie)).status, 400);
+    const finish = await request("/pages" + callbackPath, withCookie);
+    const back = new URL(finish.headers.get("location")!);
+    assert.equal(back.origin + back.pathname, pages);
+    const code = new URLSearchParams(back.hash.slice(1)).get("handoff");
+    const exchanged = await request("/pages/auth/exchange", {
+      method: "POST", headers: { Origin }, body: JSON.stringify({ code, verifier }),
+    });
+    assert.equal(exchanged.status, 200);
+    const { session } = await exchanged.json() as { session: string };
+    const rides = await request("/pages/rides", { headers: { Origin, Authorization: "Bearer " + session } });
+    assert.equal(rides.status, 200);
+    assert.equal((await rides.json() as { athlete: string }).athlete, "7");
+    const portable = await request(loginPath);
+    assert.equal(new URL(portable.headers.get("location")!).searchParams.get("redirect_uri"), desktopCallback);
+  });
 });
