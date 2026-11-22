@@ -15,7 +15,7 @@ If the owner sent you **Graltitude-Strava.zip**, shared sign-in is configured in
 The owner hosts the existing Graltitude API Worker once. Your friend runs the launcher on their laptop and signs in with their ordinary Strava account. The Worker stores the app secret and handles API requests. The laptop fits the model.
 
 1. In your Strava API settings, enable the ten-athlete capacity if your app is still in single-athlete mode. Set the authorization callback domain to your Worker's hostname. [Strava API settings](https://www.strava.com/settings/api)
-2. Follow **Enable live Strava access** below to provision D1, apply the migration, set the four Worker secrets, deploy the API and register its webhook. For a portable build, set the Worker's `APP_URL` to **`http://127.0.0.1:4177/`**. This is both the allowed browser origin and the return address after sign-in. A dedicated desktop Worker lets a Pages deployment retain its own return address.
+2. Use `apps/api/wrangler.shared.jsonc` for the desktop Worker. Its D1 database is `graltitude-desktop-sessions`, and its allowed origin and sign-in return address are `http://127.0.0.1:4177/`. Create the database, apply its migration, deploy the Worker with the four secrets listed under **Enable live Strava access**, and register the Strava webhook.
 3. From a checkout containing the committed portable app, run the following command with the HTTPS origin of your deployed Worker.
 
    ```sh
