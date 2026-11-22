@@ -94,6 +94,8 @@ async function route(req: Request, e: Env): Promise<Response> {
     const challenge = u.searchParams.get("challenge") ?? "";
     if (!/^[0-9a-f]{64}$/.test(challenge))
       fail(400, "Invalid login challenge.");
+    if (!/^\d+$/.test(e.STRAVA_CLIENT_ID) || !e.STRAVA_CLIENT_SECRET?.trim())
+      fail(503, "Strava sign-in needs the app's numeric Client ID and Client Secret. After updating local settings, restart the API and connect again.");
     const nonce = random();
     const redirect = new URL("https://www.strava.com/oauth/authorize");
     redirect.search = new URLSearchParams({

@@ -34,7 +34,7 @@ test("Strava session lifecycle", async (t) => {
   const env = {
     DB: binding,
     APP_URL: "https://site.example/Graltitude/",
-    STRAVA_CLIENT_ID: "test",
+    STRAVA_CLIENT_ID: "12345",
     STRAVA_CLIENT_SECRET: "fixture",
     TOKEN_KEY: Buffer.alloc(32, 1).toString("base64"),
     WEBHOOK_SECRET: "hook-test",
@@ -49,7 +49,14 @@ test("Strava session lifecycle", async (t) => {
   const challenge = Buffer.from(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
   ).toString("hex");
-  const start = await call("/auth/start?challenge=" + challenge);
+  const loginPath = "/auth/start?challenge=" + challenge;
+  for (const overrides of [{ STRAVA_CLIENT_ID: "" }, { STRAVA_CLIENT_ID: "undefined" }, { STRAVA_CLIENT_SECRET: "" }]) {
+    const response = await worker.fetch(new Request("https://api.example" + loginPath), { ...env, ...overrides } as unknown as Environment);
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("location"), null);
+  }
+  const start = await call(loginPath);
+  assert.equal(new URL(start.headers.get("location")!).searchParams.get("client_id"), env.STRAVA_CLIENT_ID);
   const state = new URL(start.headers.get("location")!).searchParams.get(
     "state",
   );

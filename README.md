@@ -20,7 +20,7 @@ npm run build
 
 ## Deploy the web app
 
-In the repository settings, select **Pages → Source → GitHub Actions**. The Pages workflow tests and builds on pushes to main and can also run manually. The relative asset base supports a project URL such as `https://nabudahab.github.io/Graltitude/`. The Pages build works in sample mode without a backend.
+When you're ready to publish, select **Settings → Pages → Source → GitHub Actions**, then **Actions → Deploy Graltitude to Pages → Run workflow**. This manual workflow tests, builds, and publishes the app.
 
 ## Enable live Strava access
 
