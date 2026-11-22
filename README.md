@@ -11,12 +11,34 @@ npm ci
 npm run dev
 ```
 
-Open the local URL Vite prints. Use the ride title to review its laps or whole-ride effort. Each bike has an editable total mass and fallback rolling resistance. Flat-ground power is available as soon as a bike has a fitted model. To predict a segment time, import a GPX with elevation in the prediction panel or segment planner. With Strava connected, you can also paste a segment URL or ID or choose a starred cycling segment. The planner uses the imported distance, grade and heading for every selected bike, including on segments the rider has never ridden. Each imported segment starts in still air. Choose a departure time and select **Use forecast** to apply local weather.
+Open the local URL Vite prints. Use the ride title to review its laps or whole-ride effort. Enter the combined mass of rider, bike and kit for each bike. The model uses the default rolling resistance only when it cannot estimate it from the selected rides. Flat-ground power is available as soon as a bike has a fitted model. To predict a segment time, import a GPX with elevation in the prediction panel or segment planner. With Strava connected, you can also paste a segment URL or ID or choose a starred cycling segment. The planner uses the imported distance, grade and heading for every selected bike, including on segments the rider has never ridden. Each imported segment starts in still air. Choose a departure time and select **Use forecast** to apply local weather.
 
 ```sh
 npm test
 npm run build
 ```
+
+## Try your own Strava rides on your laptop
+
+Graltitude runs the web app, API and session database on your computer. The browser runs the physics model. You need an internet connection for Strava and weather data.
+
+1. Install Node.js 24, download and extract the Graltitude source, and open a terminal in the folder containing `package.json`. [Node.js downloads](https://nodejs.org/en/download)
+2. Sign in to Strava and open **My API Application**. Use your own app or register one. Set **Authorization Callback Domain** to `127.0.0.1`. Strava requires a subscription to create an API app. Its initial single-athlete capacity is enough to test your own rides. [Strava API settings](https://www.strava.com/settings/api) · [Strava developer guide](https://developers.strava.com/docs/getting-started/)
+3. Run these two commands.
+
+   ```sh
+   npm ci
+   npm run ride-lab
+   ```
+
+4. On first run the launcher creates `apps/api/.dev.vars` with a local encryption key and prints its full path. Open the file in a text editor, paste your own **Client ID** and **Client Secret** into the matching lines, save, and run `npm run ride-lab` again. Keep this file on your laptop.
+5. When Wrangler says **Ready**, open **http://127.0.0.1:4176/** in a browser on the same computer, select **Connect with Strava** and authorize activity access. Keep the terminal open while testing. Ctrl+C stops the app. Run `npm run ride-lab` to start it again.
+
+**A first test with real rides**
+
+Pick one bike and enter the combined mass of you, the bike and your kit. Open a few solo outdoor rides from the last 90 days that recorded power, choose **Analyze ride**, and keep the laps or whole rides you trust checked. Look at **Flat-ground power** and **Calibration and accuracy** for that bike.
+
+To test a prediction, leave one separate ride unchecked. Choose a steady climb from that ride on a calm day, paste its Strava segment URL under **Import segment**, and enter your recorded average watts for that segment. Compare the prediction in still air with your actual segment time. To share feedback, send the segment watts, predicted time and actual time.
 
 ## Deploy the web app
 
@@ -39,8 +61,8 @@ GitHub Pages serves the UI. The Cloudflare Worker performs OAuth and fetches the
 
 Sync lists the last 90 days in pages of 50 activities. Open a ride and choose **Analyze ride**, or analyze the selected bikes together. Ride lists refresh on demand. Calibration uses the recorded Strava laps, or one whole-ride effort when there are no laps. Stops and long recording gaps are omitted and the effort shows how much time was modeled. Group participation, power variability, acceleration, gusts, and wet surfaces flag efforts for review. Missing measured power prevents powered calibration. Missing weather is flagged and defaults to still air only if the rider includes the effort. Weather requests use rounded coordinates and UTC times. Per-rider preferences and choices stay in the current browser. An effort overlapping a previously excluded interval stays deselected until the rider includes it. Stream data, model fits, and loaded routes live in memory.
 
-The TypeScript engine under `packages/physics` runs inside a browser Web Worker. It fits CdA and Crr to duration-weighted efforts. Aerodynamic, rolling, climbing, and kinetic work are summed over the recorded samples before fitting, using the entered system mass and a crank-to-wheel efficiency of 97.5%. An ill-conditioned fit falls back to the configured Crr; implausible CdA yields an unavailable model. The engine compares predicted and observed watts on whole held-out rides. For steady climbing efforts on those rides it also compares predicted and observed time, summarized per ride.
+The TypeScript engine under `packages/physics` runs inside a browser Web Worker. Each bike model uses every selected effort assigned to that bike, weighted by duration. The engine sums aerodynamic, rolling, climbing and kinetic work over the recorded samples. It uses the mass you entered and assumes 97.5% crank-to-wheel efficiency. When the data cannot separate rolling resistance from drag, the engine uses the bike's default Crr. An implausible CdA makes the model unavailable. To measure error, the engine temporarily leaves out each ride, fits the other rides and predicts the omitted ride's watts. The accuracy count includes each ride it could check this way. It also compares predicted and observed times on qualifying steady climbs.
 
-Segment simulation uses quasi-steady speeds over distance, a 60 km/h descent ceiling, and a forecast sampled near the start, middle and end at departure time. It suits uninterrupted climbs. Displayed time ranges measure sensitivity to held-out **power** error. Probabilistic prediction intervals, stopwatch validation on real climbs, automatic mass fitting, and corner/braking dynamics need further work.
+Segment simulation uses quasi-steady speeds over distance, a 60 km/h descent ceiling, and a forecast sampled near the start, middle and end at departure time. It suits uninterrupted climbs. Displayed time ranges measure sensitivity to the average **power** error from the ride checks. Probabilistic prediction intervals, stopwatch validation on real climbs, automatic mass fitting, and corner/braking dynamics need further work.
 
 [Strava API documentation](https://developers.strava.com/docs/) · [Strava API Policy](https://www.strava.com/legal/api_policy) · [Open-Meteo historical weather forecasts](https://open-meteo.com/en/docs/historical-forecast-api) · [Open-Meteo forecasts](https://open-meteo.com/en/docs)

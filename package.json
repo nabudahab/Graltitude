@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite apps/web",
+    "ride-lab": "node scripts/prepare-local.mjs && wrangler d1 migrations apply graltitude --local --config apps/api/wrangler.jsonc && wrangler dev --local --config apps/api/wrangler.jsonc --ip 127.0.0.1 --port 4176 --assets dist/ride-lab --var APP_URL:http://127.0.0.1:4176/",
     "build": "tsc -p tsconfig.json && vite build apps/web",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "api:dev": "wrangler dev --config apps/api/wrangler.jsonc",
