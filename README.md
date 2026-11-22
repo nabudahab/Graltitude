@@ -76,6 +76,8 @@ Select **Actions → Deploy Graltitude to Pages → Run workflow** to publish an
 
 The hosted frontend uses the existing shared Worker and session database. The repository's `VITE_API_URL` Actions variable points to `https://graltitude-desktop-sync.graltitude.workers.dev/pages`. The Worker returns web sign-ins to the project URL configured in `PAGES_APP_URL`. Register `graltitude-desktop-sync.graltitude.workers.dev` as the authorization callback domain in the Strava app settings. Desktop sign-ins continue through the loopback callback.
 
+If **Connect with Strava** returns `redirect_uri invalid`, open **My API Application → Edit** in the owner's Strava account and save the Worker hostname in **Authorization Callback Domain**. Enter the hostname alone. Run `npm run check:strava` to verify that Strava accepts the deployed callback and opens rider login. The check runs without athlete credentials. [Strava API settings](https://www.strava.com/settings/api)
+
 ## Set up a standalone API Worker for another Pages deployment
 
 1. Register a Strava API application. Set its authorization callback domain to the hostname of your Cloudflare Worker. To connect a small group, enable the ten-athlete capacity in your Strava dashboard.

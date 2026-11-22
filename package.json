@@ -9,6 +9,7 @@
     "build:portable": "node scripts/build-portable.mjs",
     "package:strava": "node scripts/package-strava.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check:strava": "node scripts/check-strava-callback.mjs",
     "api:dev": "wrangler dev --config apps/api/wrangler.jsonc",
     "api:deploy": "wrangler deploy --config apps/api/wrangler.jsonc"
   },
