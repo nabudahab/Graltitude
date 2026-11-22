@@ -29,7 +29,7 @@ export function calculate(bikes: Fitted[], job: Plan) {
       model.heldOutRides >= 2
         ? [
             time(job.power + model.wattsError),
-            time(Math.max(10, job.power - model.wattsError)),
+            time(Math.max(1, job.power - model.wattsError)),
           ]
         : null;
     return {
