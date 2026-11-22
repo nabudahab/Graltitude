@@ -16,7 +16,7 @@ export function clearSession() {
 export async function api<T>(path: string, post?: unknown): Promise<T> {
   if (!apiBase)
     throw Error(
-      "Live sync needs a configured Strava Worker. The sample workspace is ready to use.",
+      "Live sync needs a configured Strava Worker.",
     );
   const session = sessionStorage.getItem(sessionKey);
   const r = await fetch(apiBase + path, {

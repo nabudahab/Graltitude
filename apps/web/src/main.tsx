@@ -10,7 +10,6 @@ import {
 } from "../../../packages/physics/index";
 import type { Results } from "./compute";
 import PhysicsWorker from "./engine.worker.ts?worker&inline";
-import { sampleBikes, sampleRides } from "./sample";
 import { api, apiBase, clearSession, connect, resume } from "./api";
 import { importRideGpx } from "./rideGpx";
 import { SegmentImport } from "./SegmentImport";
@@ -39,8 +38,7 @@ const blank = (): Prefs => ({
   extra: [],
 });
 const portable = import.meta.env.MODE === "portable";
-const initialOwner = portable ? "local-files" : "sample";
-const initialBikes = portable ? [] : sampleBikes;
+const localOwner = "local-files";
 function readPrefs(owner: string): Prefs {
   try {
     return {
@@ -157,12 +155,12 @@ function NumberSetting({
   );
 }
 function App() {
-  const [owner, setOwner] = useState(initialOwner),
-    [rides, setRides] = useState<Ride[]>(portable ? [] : sampleRides),
-    [bikes, setBikes] = useState<Bike[]>(initialBikes);
-  const [active, setActive] = useState(initialBikes.map((b) => b.id)),
-    [prefs, setPrefs] = useState(() => readPrefs(initialOwner));
-  const [fileBike, setFileBike] = useState("My bike"),
+  const [owner, setOwner] = useState(localOwner),
+    [rides, setRides] = useState<Ride[]>([]),
+    [bikes, setBikes] = useState<Bike[]>([]);
+  const [active, setActive] = useState<string[]>([]),
+    [prefs, setPrefs] = useState(() => readPrefs(localOwner));
+  const [fileBike, setFileBike] = useState(""),
     [groupFiles, setGroupFiles] = useState(false);
   const [openRide, setOpenRide] = useState(""),
     [status, setStatus] = useState(""),
@@ -188,6 +186,7 @@ function App() {
   const bikeFor = (r: Ride) => prefs.assign[r.id] ?? r.bike;
   const shown = rides.filter((r) => active.includes(bikeFor(r)) || !bikeFor(r));
   const pendingRides = shown.filter((r) => !r.windows.length && !r.issue);
+  const hasWorkspace = live || rides.length > 0;
   useEffect(() => {
     try {
       localStorage.setItem("graltitude/" + owner, JSON.stringify(prefs));
@@ -396,13 +395,9 @@ function App() {
           </a>
           <span className="mode">
             <i />
-            {live
-              ? "Strava workspace"
-              : portable
-                ? (rides.length ? "Local ride files" : "Portable Ride Lab")
-                : "Sample workspace"}
+            {live ? "Strava workspace" : rides.length ? "Local ride files" : "Not connected"}
           </span>
-          {(!portable || apiBase) && (
+          {apiBase && (
             <button
               className="connect"
               disabled={busy}
@@ -457,13 +452,13 @@ function App() {
         )}
         <div className="layout">
           <div className="work">
-            {portable && !live && tab === "rides" && (
+            {!live && tab === "rides" && (
               <section className="panel">
-                <h2>Sync your Strava rides</h2>
+                <h2>{apiBase ? "Sync your Strava rides" : "Add your rides"}</h2>
                 {apiBase ? (
                   <p>Select <b>Connect with Strava</b> and authorize activity access.
                     Ride Lab loads recent rides with recorded power and groups them by bike.</p>
-                ) : (
+                ) : portable && (
                   <p>In the extracted Graltitude folder, open <b>Strava for Windows.cmd</b>,{" "}
                     <b>Strava for Mac.command</b> or <b>Strava for Linux.sh</b>.
                     Then select <b>Connect with Strava</b> in the browser.</p>
@@ -513,7 +508,7 @@ function App() {
                 </details>
               </section>
             )}
-            <section className="panel">
+            {hasWorkspace && <section className="panel">
               <div className="head">
                 <h2>Your bikes</h2>
                 <small>{active.length} selected</small>
@@ -571,8 +566,8 @@ function App() {
                   </form>
                 </details>
               )}
-            </section>
-            {tab === "rides" ? (
+            </section>}
+            {tab === "rides" && hasWorkspace && (
               <section className="panel">
                 <div className="head">
                   <div>
@@ -665,30 +660,28 @@ function App() {
                       </div>
                       {expanded && (
                         <div className="intervals">
-                          {(live || portable) && (
-                            <label>
-                              Bike{" "}
-                              <select
-                                value={bikeFor(r)}
-                                onChange={(e) =>
-                                  setPrefs((p) => ({
-                                    ...p,
-                                    assign: {
-                                      ...p.assign,
-                                      [r.id]: e.target.value,
-                                    },
-                                  }))
-                                }
-                              >
-                                <option value="">Unassigned</option>
-                                {allBikes.map((b) => (
-                                  <option key={b.id} value={b.id}>
-                                    {b.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          )}
+                          <label>
+                            Bike{" "}
+                            <select
+                              value={bikeFor(r)}
+                              onChange={(e) =>
+                                setPrefs((p) => ({
+                                  ...p,
+                                  assign: {
+                                    ...p.assign,
+                                    [r.id]: e.target.value,
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="">Unassigned</option>
+                              {allBikes.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           {r.issue && <p>{r.issue}</p>}
                           {!r.windows.length && live && (
                             <button
@@ -733,7 +726,8 @@ function App() {
                   </button>
                 )}
               </section>
-            ) : (
+            )}
+            {tab === "plan" && (
               <section className="panel">
                 {importer}
                 {course && (
@@ -778,7 +772,7 @@ function App() {
                 )}
               </section>
             )}
-            <section className="panel">
+            {active.length > 0 && <section className="panel">
               <div className="head">
                 <h2>Bike setup</h2>
                 <small>Per selected bike</small>
@@ -821,7 +815,7 @@ function App() {
                 resistance from your rides when it can separate it from air
                 drag. Otherwise it uses your default.
               </small>
-            </section>
+            </section>}
           </div>
           <aside>
             {!course ? (
@@ -880,7 +874,7 @@ function App() {
               ))}
               {!active.length && <p>Select a bike to predict its time.</p>}
             </section>}
-            <section className="panel model">
+            {active.length > 0 && <section className="panel model">
               <div className="kicker">NEUTRAL CONDITIONS</div>
               <h2>Flat-ground power</h2>
               <label className="slider">
@@ -908,8 +902,8 @@ function App() {
                   )}
                 </div>
               ))}
-            </section>
-            <section className="panel">
+            </section>}
+            {active.length > 0 && <section className="panel">
               <h2>Calibration and accuracy</h2>
               <p className="check">
                 Each bike uses all its selected efforts. To check accuracy, we
@@ -942,7 +936,7 @@ function App() {
                 is higher or lower by the average error. Wind and route errors
                 can also affect your time.
               </small>
-            </section>
+            </section>}
           </aside>
         </div>
       </main>
@@ -950,12 +944,8 @@ function App() {
         <span>Graltitude · Ride lab</span>
         {portable && apiBase === "." && <a href="/desktop/settings">Strava settings</a>}
         <span>
-          {live
-            ? "Powered by Strava"
-            : portable
-              ? "Local ride files"
-              : "Synthetic sample rides"}{" "}
-          · <a href="https://open-meteo.com/">Weather by Open-Meteo</a>
+          {live && "Powered by Strava · "}
+          <a href="https://open-meteo.com/">Weather by Open-Meteo</a>
         </span>
       </footer>
     </>

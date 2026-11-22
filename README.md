@@ -1,6 +1,6 @@
 # Graltitude
 
-A mobile-friendly cycling calibration and climb planner. Select several bikes, review laps and whole rides with measured power, and compare flat-ground power and climb times. The sample workspace runs immediately with two bikes and synthetic rides. Live activities enter through Strava OAuth.
+A mobile-friendly cycling calibration and climb planner. Connect Strava or import power-meter GPX rides to populate your workspace. Select several bikes, review laps and whole rides with measured power, and compare flat-ground power and climb times.
 
 [Open Graltitude in your browser](https://nabudahab.github.io/Graltitude/). Choose **Connect with Strava**, authorize activity access, and select a bike in Ride Lab. The browser runs the physics model.
 
