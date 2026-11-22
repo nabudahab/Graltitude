@@ -405,8 +405,21 @@ input[type="range"] {
   accent-color: #659452;
   cursor: pointer;
 }
-.predict input[type="range"] {
-  accent-color: #d8ed9c;
+.target-power label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+.target-power input {
+  width: 6.5em;
+  color: var(--green);
+  font: 600 15px var(--mono);
+}
+.target-power small {
+  margin-top: 6px;
 }
 .timing,
 .readout {

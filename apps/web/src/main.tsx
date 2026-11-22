@@ -12,6 +12,7 @@ import type { Results } from "./compute";
 import { sampleBikes, sampleRides, exampleCourse } from "./sample";
 import { api, connect, resume } from "./api";
 import { SegmentImport } from "./SegmentImport";
+import { TargetPower } from "./TargetPower";
 import { weatherAt } from "./weather";
 import { summarize, type Streams } from "./streams";
 import "./style.css";
@@ -733,19 +734,7 @@ function App() {
                   <b>{Math.round(gain)}</b> m gain
                 </span>
               </div>
-              <label className="slider">
-                <span>
-                  Target power <b>{power} W</b>
-                </span>
-                <input
-                  type="range"
-                  min="80"
-                  max="550"
-                  step="5"
-                  value={power}
-                  onChange={(e) => setPower(+e.target.value)}
-                />
-              </label>
+              <TargetPower value={power} onChange={setPower} />
               {results.map((r) => (
                 <div className="timing" key={r.id}>
                   <span>{allBikes.find((b) => b.id === r.id)?.name}</span>
