@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "graltitude-desktop-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": { "crons": ["0 3 * * *"] },
+  "vars": { "APP_URL": "http://127.0.0.1:4177/" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "graltitude-desktop-sessions",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
