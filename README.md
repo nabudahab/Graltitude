@@ -4,19 +4,29 @@ A mobile-friendly cycling calibration and climb planner. Select several bikes, r
 
 ## Open Ride Lab on Windows, macOS or Linux
 
-Download the repository ZIP and extract it, or clone the repository. Both versions below open in your desktop browser. [Download Graltitude](https://github.com/nabudahab/Graltitude/archive/refs/heads/main.zip)
+1. Extract the Graltitude ZIP. Open **Strava for Windows.cmd**, **Strava for Mac.command** or **Strava for Linux.sh**. On Linux, choose **Run as a Program** if prompted. The launcher opens your browser and handles the runtime on first use. Keep its window open.
+2. Select **Connect with Strava** and authorize Graltitude to read your activities. Ride Lab lists recent outdoor rides with measured power and groups them by bike.
+3. Choose your bike, enter your combined rider, bike and kit mass, then use **Analyze ride** or **Analyze selected bikes**. Review the laps or whole rides and check the efforts you want to use.
 
-**To try your rides with zero setup**, double-click **Graltitude.html** in the top folder.
+If the owner sent you **Graltitude-Strava.zip**, shared sign-in is configured inside it. The general GitHub ZIP uses your own Strava API application and prompts for its Client ID and Client Secret on first connect. Strava requires a subscription to register an API application. [Download the general ZIP](https://github.com/nabudahab/Graltitude/archive/refs/heads/main.zip) · [Strava developer guide](https://developers.strava.com/docs/getting-started/)
 
-1. On the Strava website, open one of your own outdoor power-meter rides. Choose **… → Export GPX**. Repeat for a few rides on the same bike. Strava includes recorded power in its GPX export. [Strava export instructions](https://support.strava.com/en-us/articles/15401919-how-do-i-export-my-strava-data)
-2. In Ride Lab, enter the bike name and choose the ride files together. Mark group rides when importing them. Use a different bike name when importing rides for another bike.
-3. Enter your combined rider, bike and kit mass under **Bike setup**. Review the flagged rides and check the efforts you want to use. **Flat-ground power** shows the fitted predictions. To estimate a segment time, import a segment GPX with elevation and type your target watts.
+### Share your Strava application with a tester
 
-The portable file uses whole rides from GPX and runs the fit on your laptop. With an internet connection it can also look up weather. Offline rides are marked **Weather unknown** so you can decide whether to include them. Reopen your ride files after closing the app.
+The owner hosts the existing Graltitude API Worker once. Your friend runs the launcher on their laptop and signs in with their ordinary Strava account. The Worker stores the app secret and handles API requests. The laptop fits the model.
 
-**To sync directly with Strava**, open **Strava for Windows.cmd**, **Strava for Mac.command** or **Strava for Linux.sh** from the extracted folder. Linux file managers may call this **Run as a Program**. The launcher opens Ride Lab in your browser. The first launch downloads a verified runtime if one is needed. Keep the launcher window open while using the app.
+1. In your Strava API settings, enable the ten-athlete capacity if your app is still in single-athlete mode. Set the authorization callback domain to your Worker's hostname. [Strava API settings](https://www.strava.com/settings/api)
+2. Follow **Enable live Strava access** below to provision D1, apply the migration, set the four Worker secrets, deploy the API and register its webhook. For a portable build, set the Worker's `APP_URL` to **`http://127.0.0.1:4177/`**. This is both the allowed browser origin and the return address after sign-in. A dedicated desktop Worker lets a Pages deployment retain its own return address.
+3. From a checkout containing the committed portable app, run the following command with the HTTPS origin of your deployed Worker.
 
-Click **Connect with Strava**. The first time, the app walks you through entering your own Strava Client ID and Client Secret and setting the callback domain to `127.0.0.1`. Strava requires a subscription to create an API application. Use **Strava settings** at the foot of the app to update these credentials. The app stores them in your user folder and keeps ride sessions in memory until you close the launcher. The sync imports your bike assignments, recorded laps and starred segments. [Strava API settings](https://www.strava.com/settings/api) · [Strava developer guide](https://developers.strava.com/docs/getting-started/)
+   ```sh
+   npm run package:strava -- https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev
+   ```
+
+4. Send **`dist/share/Graltitude-Strava.zip`** to your friend. It contains the committed app and a small configuration file with the public Worker URL. The desktop launcher reads that URL automatically. Test the ZIP by opening its launcher and connecting to Strava.
+
+### Use ride files offline
+
+Open **Graltitude.html**, choose **Import GPX ride files**, and load power-meter rides exported from the Strava website with **… → Export GPX**. Name the bike and mark group rides when importing them. Offline rides are flagged **Weather unknown**. Reopen your files after closing the app. [Strava export instructions](https://support.strava.com/en-us/articles/15401919-how-do-i-export-my-strava-data)
 
 ## Run the development version
 
@@ -65,10 +75,10 @@ When you're ready to publish, select **Settings → Pages → Source → GitHub 
 ## Enable live Strava access
 
 1. Register a Strava API application. Set its authorization callback domain to the hostname of your Cloudflare Worker. To connect a small group, enable the ten-athlete capacity in your Strava dashboard.
-2. Authenticate Wrangler with `npx wrangler login`. Create the database with `npx wrangler d1 create graltitude` and put the returned database ID in `apps/api/wrangler.jsonc`. Set `APP_URL` to the full Pages URL with its trailing slash.
+2. Authenticate Wrangler with `npx wrangler login`. Create the database with `npx wrangler d1 create graltitude` and put the returned database ID in `apps/api/wrangler.jsonc`. Set `APP_URL` to the full Pages URL with its trailing slash for web hosting, or `http://127.0.0.1:4177/` for a shared portable package.
 3. Apply the schema with `npx wrangler d1 migrations apply graltitude --remote --config apps/api/wrangler.jsonc`.
 4. Set each Worker secret using `npx wrangler secret put NAME --config apps/api/wrangler.jsonc`. Use `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `TOKEN_KEY` (a base64-encoded 32-byte AES key, e.g. generated with `openssl rand -base64 32`), and `WEBHOOK_SECRET` (a random URL-safe verification token). Keep all four on the Worker.
-5. Run `npm run api:deploy`. Set the GitHub repository **Actions variable** `VITE_API_URL` to the Worker HTTPS origin and rerun the Pages workflow. Only this public URL belongs in the frontend build.
+5. Run `npm run api:deploy`. For a Pages deployment, set the GitHub repository **Actions variable** `VITE_API_URL` to the Worker HTTPS origin and rerun the Pages workflow. Only this public URL belongs in the frontend build.
 6. Register the Strava webhook subscription using the callback `https://YOUR-WORKER/events/YOUR-WEBHOOK-SECRET` and the same value for its verify token. The Worker clears the server session on deauthorization. Each rider can also revoke access at Strava under **My Apps**.
 
 For local integration use the same bindings in an ignored `apps/api/.dev.vars`, the local Vite URL for `APP_URL`, and `npx wrangler d1 migrations apply graltitude --local --config apps/api/wrangler.jsonc` before `npm run api:dev`. Set the shell variable `VITE_API_URL` to the local Worker origin when launching Vite. Strava must accept your callback host for the OAuth round trip.
