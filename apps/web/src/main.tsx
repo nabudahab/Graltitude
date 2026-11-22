@@ -9,8 +9,10 @@ import {
   type Window,
 } from "../../../packages/physics/index";
 import type { Results } from "./compute";
+import PhysicsWorker from "./engine.worker.ts?worker&inline";
 import { sampleBikes, sampleRides } from "./sample";
-import { api, connect, resume } from "./api";
+import { api, apiBase, connect, resume } from "./api";
+import { importRideGpx } from "./rideGpx";
 import { SegmentImport } from "./SegmentImport";
 import { TargetPower } from "./TargetPower";
 import { weatherAt } from "./weather";
@@ -36,6 +38,9 @@ const blank = (): Prefs => ({
   crr: {},
   extra: [],
 });
+const portable = import.meta.env.MODE === "portable";
+const initialOwner = portable ? "local-files" : "sample";
+const initialBikes = portable ? [] : sampleBikes;
 function readPrefs(owner: string): Prefs {
   try {
     return {
@@ -152,11 +157,13 @@ function NumberSetting({
   );
 }
 function App() {
-  const [owner, setOwner] = useState("sample"),
-    [rides, setRides] = useState<Ride[]>(sampleRides),
-    [bikes, setBikes] = useState<Bike[]>(sampleBikes);
-  const [active, setActive] = useState(sampleBikes.map((b) => b.id)),
-    [prefs, setPrefs] = useState(() => readPrefs("sample"));
+  const [owner, setOwner] = useState(initialOwner),
+    [rides, setRides] = useState<Ride[]>(portable ? [] : sampleRides),
+    [bikes, setBikes] = useState<Bike[]>(initialBikes);
+  const [active, setActive] = useState(initialBikes.map((b) => b.id)),
+    [prefs, setPrefs] = useState(() => readPrefs(initialOwner));
+  const [fileBike, setFileBike] = useState("My bike"),
+    [groupFiles, setGroupFiles] = useState(false);
   const [openRide, setOpenRide] = useState(""),
     [status, setStatus] = useState(""),
     [busy, setBusy] = useState(false),
@@ -189,10 +196,7 @@ function App() {
     }
   }, [owner, prefs]);
   useEffect(() => {
-    engine.current = new Worker(
-      new URL("./engine.worker.ts", import.meta.url),
-      { type: "module" },
-    );
+    engine.current = new PhysicsWorker();
     engine.current.onmessage = (e) => setResults(e.data);
     engine.current.onerror = () =>
       setStatus("The simulation worker failed. Reload to retry.");
@@ -282,6 +286,7 @@ function App() {
     setOpenRide("");
   }
   useEffect(() => {
+    if (portable && !apiBase) return;
     void run(async () => {
       if (await resume()) {
         try {
@@ -293,6 +298,40 @@ function App() {
       }
     });
   }, []);
+  async function importFiles(files: File[]) {
+    const name = fileBike.trim();
+    if (!name || !files.length) return;
+    const bikeId = "local:" + name.toLowerCase();
+    const added = new Map<string, Ride>();
+    const messages: string[] = [];
+    for (const file of files) {
+      setStatus("Reading " + file.name + "…");
+      try {
+        const ride = await importRideGpx(
+          file,
+          bikeId,
+          groupFiles,
+          prefs.choices,
+        );
+        if (rides.some((r) => r.id === ride.id) || added.has(ride.id))
+          messages.push(file.name + " is already in this workspace.");
+        else added.set(ride.id, ride);
+      } catch (e) {
+        messages.push(file.name + " — " + errText(e));
+      }
+    }
+    if (added.size) {
+      if (!bikes.some((b) => b.id === bikeId))
+        setBikes((old) => [...old, { id: bikeId, name, mass: 85 }]);
+      setActive((old) => (old.includes(bikeId) ? old : [...old, bikeId]));
+      setRides((old) => [...old, ...added.values()]);
+      setOpenRide(added.values().next().value!.id);
+      messages.unshift(
+        `Imported ${added.size} ${added.size === 1 ? "ride" : "rides"}. Check the efforts you want to use for calibration.`,
+      );
+    }
+    setStatus(messages.join(" "));
+  }
   async function analyze(r: Ride) {
     setStatus("Reviewing " + r.name + "…");
     const data = await api<RideDetail>("/rides/" + r.id);
@@ -352,31 +391,37 @@ function App() {
     <>
       <header>
         <div className="bar">
-          <a className="brand" href="./">
+          <a className="brand" href={portable ? "#root" : "./"}>
             <Mark /> Graltitude
           </a>
           <span className="mode">
             <i />
-            {live ? "Strava workspace" : "Sample workspace"}
+            {live
+              ? "Strava workspace"
+              : portable
+                ? "Local ride files"
+                : "Sample workspace"}
           </span>
-          <button
-            className="connect"
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                if (live) {
-                  try {
-                    await api("/logout", {});
-                  } finally {
-                    sessionStorage.removeItem("graltitude-session");
-                    location.reload();
-                  }
-                } else await connect();
-              })
-            }
-          >
-            {live ? "Sign out" : "Connect with Strava"} ↗
-          </button>
+          {(!portable || apiBase) && (
+            <button
+              className="connect"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  if (live) {
+                    try {
+                      await api("/logout", {});
+                    } finally {
+                      sessionStorage.removeItem("graltitude-session");
+                      location.reload();
+                    }
+                  } else await connect();
+                })
+              }
+            >
+              {live ? "Sign out" : "Connect with Strava"} ↗
+            </button>
+          )}
         </div>
       </header>
       <main>
@@ -412,6 +457,51 @@ function App() {
         )}
         <div className="layout">
           <div className="work">
+            {portable && !live && tab === "rides" && (
+              <section className="panel">
+                <h2>Import your rides</h2>
+                <p>
+                  Open a ride on the Strava website and choose{" "}
+                  <b>… → Export GPX</b>. Pick files recorded with a power meter
+                  on the same bike.
+                </p>
+                <label className="field">
+                  Bike name
+                  <input
+                    value={fileBike}
+                    onChange={(e) => setFileBike(e.target.value)}
+                  />
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={groupFiles}
+                    onChange={(e) => setGroupFiles(e.target.checked)}
+                  />{" "}
+                  Group rides
+                </label>
+                <div className="actions">
+                  <label className="file">
+                    Choose ride files
+                    <input
+                      type="file"
+                      accept=".gpx"
+                      multiple
+                      disabled={busy || !fileBike.trim()}
+                      onChange={(e) => {
+                        const files = Array.from(e.currentTarget.files ?? []);
+                        e.currentTarget.value = "";
+                        void run(() => importFiles(files));
+                      }}
+                    />
+                  </label>
+                </div>
+                <small>
+                  Ride files stay on this laptop. Weather lookups use rounded
+                  locations and dates. Reopen the files after closing the app.
+                </small>
+              </section>
+            )}
             <section className="panel">
               <div className="head">
                 <h2>Your bikes</h2>
@@ -564,7 +654,7 @@ function App() {
                       </div>
                       {expanded && (
                         <div className="intervals">
-                          {live && (
+                          {(live || portable) && (
                             <label>
                               Bike{" "}
                               <select
@@ -847,9 +937,14 @@ function App() {
       </main>
       <footer>
         <span>Graltitude · Ride lab</span>
+        {portable && apiBase && <a href="/desktop/settings">Strava settings</a>}
         <span>
-          {live ? "Powered by Strava" : "Synthetic sample rides"} ·{" "}
-          <a href="https://open-meteo.com/">Weather by Open-Meteo</a>
+          {live
+            ? "Powered by Strava"
+            : portable
+              ? "Local ride files"
+              : "Synthetic sample rides"}{" "}
+          · <a href="https://open-meteo.com/">Weather by Open-Meteo</a>
         </span>
       </footer>
     </>

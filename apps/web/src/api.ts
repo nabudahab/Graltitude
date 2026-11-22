@@ -1,6 +1,11 @@
-export const apiBase = (
-  import.meta.env.VITE_API_URL as string | undefined
-)?.replace(/\/$/, "");
+const configuredApi = import.meta.env.VITE_API_URL as string | undefined;
+// The desktop server adds this tag when it serves the standalone file.
+const desktopApi =
+  import.meta.env.MODE === "portable" && location.protocol !== "file:"
+    ? document.querySelector<HTMLMetaElement>('meta[name="graltitude-api"]')
+        ?.content
+    : undefined;
+export const apiBase = (configuredApi || desktopApi)?.replace(/\/$/, "");
 export async function api<T>(path: string, post?: unknown): Promise<T> {
   if (!apiBase)
     throw Error(
