@@ -369,8 +369,12 @@ select {
   color: #f6f8ed;
 }
 .predict .kicker,
-.predict small {
+.predict small,
+.predict .muted {
   color: #c7d9c4;
+}
+.predict .importer :is(button, input, select, .file, .notice) {
+  color: #172c25;
 }
 .predict h2 {
   font-size: 30px;

@@ -3,7 +3,6 @@ import {
   watts,
   type Bike,
   type Ride,
-  type Course,
 } from "../../../packages/physics/index";
 export const sampleBikes: Bike[] = [
   { id: "road", name: "Road bike", mass: 83 },
@@ -64,13 +63,3 @@ export const sampleRides: Ride[] = names.map((name, i) => {
     }),
   };
 });
-export const exampleCourse: Course = {
-  name: "Ridge ascent",
-  located: false,
-  points: Array.from({ length: 61 }, (_, i) => ({
-    lat: 45 + i * 0.0009,
-    lon: 7,
-    z: 120 + 0.052 * i * 100 + 6 * Math.sin(i / 8),
-    d: i * 100,
-  })),
-};

@@ -5,7 +5,7 @@ import {
   type Window,
   type Course,
   type Weather,
-} from "../../../packages/physics/index";
+} from "../../../packages/physics/index.ts";
 export type FitInput = {
   id: string;
   mass: number;
@@ -13,7 +13,7 @@ export type FitInput = {
   rows: Window[];
 };
 export type Plan = {
-  course: Course;
+  course: Course | null;
   power: number;
   speed: number;
   weather: Weather[];
@@ -24,7 +24,10 @@ export type Job =
 export function calculate(bikes: Fitted[], job: Plan) {
   return bikes.map(({ id, model }) => {
     if (!model) return { id, model: null };
-    const time = (p: number) => simulate(job.course, model, p, job.weather);
+    const flat = watts(job.speed / 3.6, 0, model.mass, model.cda, model.crr);
+    const { course } = job;
+    if (!course) return { id, model, flat, seconds: null, range: null };
+    const time = (p: number) => simulate(course, model, p, job.weather);
     const range =
       model.heldOutRides >= 2
         ? [
@@ -37,7 +40,7 @@ export function calculate(bikes: Fitted[], job: Plan) {
       model,
       seconds: time(job.power),
       range,
-      flat: watts(job.speed / 3.6, 0, model.mass, model.cda, model.crr),
+      flat,
     };
   });
 }

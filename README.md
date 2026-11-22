@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL Vite prints. Use the ride title to expand its intervals. Each bike has an editable total mass and fallback rolling resistance. Select **Import segment** in the prediction panel. Import a GPX with elevation, paste a Strava segment page link or ID, or choose a starred cycling segment from the connected account. The planner uses the imported distance, grade and heading for every selected bike, including on segments the rider has never ridden. Choose a departure time for forecast weather. The sample course uses still air.
+Open the local URL Vite prints. Use the ride title to expand its intervals. Each bike has an editable total mass and fallback rolling resistance. Flat-ground power is available as soon as a bike has a fitted model. To predict a segment time, import a GPX with elevation in the prediction panel or segment planner. With Strava connected, you can also paste a segment URL or ID or choose a starred cycling segment. The planner uses the imported distance, grade and heading for every selected bike, including on segments the rider has never ridden. Each imported segment starts in still air. Choose a departure time and select **Use forecast** to apply local weather.
 
 ```sh
 npm test

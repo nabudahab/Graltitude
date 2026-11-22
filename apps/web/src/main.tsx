@@ -9,7 +9,7 @@ import {
   type Window,
 } from "../../../packages/physics/index";
 import type { Results } from "./compute";
-import { sampleBikes, sampleRides, exampleCourse } from "./sample";
+import { sampleBikes, sampleRides } from "./sample";
 import { api, connect, resume } from "./api";
 import { SegmentImport } from "./SegmentImport";
 import { weatherAt } from "./weather";
@@ -155,7 +155,7 @@ function App() {
     [status, setStatus] = useState(""),
     [busy, setBusy] = useState(false),
     [live, setLive] = useState(false);
-  const [course, setCourse] = useState(exampleCourse),
+  const [course, setCourse] = useState<Course | null>(null),
     [power, setPower] = useState(220),
     [speed, setSpeed] = useState(30),
     [weather, setWeather] = useState<Weather[]>([calm]),
@@ -320,7 +320,7 @@ function App() {
     setStatus("");
   }
   async function forecast() {
-    if (!when || !course.located)
+    if (!when || !course?.located)
       throw Error("Load a route and choose a departure time first.");
     const time = new Date(when);
     const data = await Promise.all(
@@ -338,9 +338,12 @@ function App() {
     (n, r) => n + r.windows.filter((w) => selected(w, prefs)).length,
     0,
   );
-  const gain = course.points.reduce(
+  const gain = course?.points.reduce(
     (n, p, i, a) => n + (i ? Math.max(0, p.z - a[i - 1].z) : 0),
     0,
+  ) ?? 0;
+  const importer = (
+    <SegmentImport live={live} busy={busy} run={run} choose={chooseCourse} />
   );
   return (
     <>
@@ -619,48 +622,47 @@ function App() {
               </section>
             ) : (
               <section className="panel">
-                <SegmentImport
-                  live={live}
-                  busy={busy}
-                  run={run}
-                  choose={chooseCourse}
-                />
-                <p className="current-segment" role="status">
-                  Planning for <strong>{course.name}</strong> ·{" "}
-                  <a href="#prediction">View prediction</a>
-                </p>
-                <label className="field">
-                  Departure time (local)
-                  <input
-                    type="datetime-local"
-                    value={when}
-                    onChange={(e) => {
-                      setWhen(e.target.value);
-                      setWeather([calm]);
-                    }}
-                    disabled={busy}
-                  />
-                </label>
-                <div className="actions">
-                  <button
-                    disabled={busy || !course.located || !when}
-                    onClick={() => run(forecast)}
-                  >
-                    Use forecast
-                  </button>
-                  <button disabled={busy} onClick={() => setWeather([calm])}>
-                    Use still air
-                  </button>
-                </div>
-                <small>
-                  {weather.length > 1
-                    ? "Open-Meteo forecast applied at three route locations."
-                    : "Still air · 1.225 kg/m³ air density"}
-                </small>
-                <p className="muted">
-                  Climb times assume steady crank power and uninterrupted
-                  riding. Descents are capped at 60 km/h.
-                </p>
+                {importer}
+                {course && (
+                  <>
+                    <p className="current-segment" role="status">
+                      Planning for <strong>{course.name}</strong> ·{" "}
+                      <a href="#prediction">View prediction</a>
+                    </p>
+                    <label className="field">
+                      Departure time (local)
+                      <input
+                        type="datetime-local"
+                        value={when}
+                        onChange={(e) => {
+                          setWhen(e.target.value);
+                          setWeather([calm]);
+                        }}
+                        disabled={busy}
+                      />
+                    </label>
+                    <div className="actions">
+                      <button
+                        disabled={busy || !course.located || !when}
+                        onClick={() => run(forecast)}
+                      >
+                        Use forecast
+                      </button>
+                      <button disabled={busy} onClick={() => setWeather([calm])}>
+                        Use still air
+                      </button>
+                    </div>
+                    <small>
+                      {weather.length > 1
+                        ? "Open-Meteo forecast applied at three route locations."
+                        : "Still air · 1.225 kg/m³ air density"}
+                    </small>
+                    <p className="muted">
+                      Climb times assume steady crank power and uninterrupted
+                      riding. Descents are capped at 60 km/h.
+                    </p>
+                  </>
+                )}
               </section>
             )}
             <section className="panel">
@@ -708,7 +710,18 @@ function App() {
             </section>
           </div>
           <aside>
-            <section className="predict" id="prediction">
+            {!course ? (
+              <section className="predict" id="prediction">
+                <div className="head">
+                  <div className="kicker">SEGMENT PREDICTION</div>
+                </div>
+                {tab === "rides" ? importer : (
+                  <a href="#segment-import">
+                    Import a segment to predict your time
+                  </a>
+                )}
+              </section>
+            ) : <section className="predict" id="prediction">
               <div className="head">
                 <div className="kicker">SEGMENT PREDICTION</div>
                 <button
@@ -749,7 +762,7 @@ function App() {
               {results.map((r) => (
                 <div className="timing" key={r.id}>
                   <span>{allBikes.find((b) => b.id === r.id)?.name}</span>
-                  <strong>{r.model ? duration(r.seconds!) : "—"}</strong>
+                  <strong>{r.seconds != null ? duration(r.seconds) : "—"}</strong>
                   {r.range && (
                     <small>
                       {duration(r.range[0])}–{duration(r.range[1])} ·
@@ -764,7 +777,7 @@ function App() {
                 </div>
               ))}
               {!active.length && <p>Select a bike to predict its time.</p>}
-            </section>
+            </section>}
             <section className="panel model">
               <div className="kicker">NEUTRAL CONDITIONS</div>
               <h2>Flat-ground power</h2>
