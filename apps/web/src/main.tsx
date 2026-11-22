@@ -9,14 +9,17 @@ import {
   type Window,
 } from "../../../packages/physics/index";
 import type { Results } from "./compute";
+import type { PlannedCourse } from "./course";
 import PhysicsWorker from "./engine.worker.ts?worker&inline";
 import { api, apiBase, clearSession, connect, resume } from "./api";
 import { importRideGpx } from "./rideGpx";
 import { SegmentImport } from "./SegmentImport";
 import { TargetPower } from "./TargetPower";
-import { weatherAt } from "./weather";
+import { useSegmentHistory, type SegmentObservation } from "./useSegmentHistory";
+import { courseWeather } from "./weather";
 import {
   analyzeRide,
+  excludedFromHistory,
   included,
   previouslyExcluded,
   type RideDetail,
@@ -166,11 +169,12 @@ function App() {
     [status, setStatus] = useState(""),
     [busy, setBusy] = useState(false),
     [live, setLive] = useState(false);
-  const [course, setCourse] = useState<Course | null>(null),
+  const [course, setCourse] = useState<PlannedCourse | null>(null),
     [power, setPower] = useState(220),
     [speed, setSpeed] = useState(30),
     [weather, setWeather] = useState<Weather[]>([calm]),
     [when, setWhen] = useState("");
+  const [useHistory, setUseHistory] = useState(true);
   const [results, setResults] = useState<Results>([]),
     [newBike, setNewBike] = useState("");
   const [tab, setTab] = useState<"rides" | "plan">("rides"),
@@ -184,6 +188,35 @@ function App() {
     [bikes, prefs.extra],
   );
   const bikeFor = (r: Ride) => prefs.assign[r.id] ?? r.bike;
+  const historyRides = useMemo(
+    () => rides.filter(
+      (ride) =>
+        /^\d+$/.test(ride.id) &&
+        !ride.group &&
+        active.includes(prefs.assign[ride.id] ?? ride.bike),
+      ),
+    [rides, active, prefs.assign],
+  );
+  const { search: history, retry: retryHistory } = useSegmentHistory(
+    course,
+    historyRides,
+    live && useHistory,
+  );
+  const observations = history?.observations;
+  const historyComplete =
+    history && !history.error && history.checked === historyRides.length;
+  const historyByBike = useMemo(() => {
+    if (!observations?.length) return undefined;
+    const byRide = new Map(historyRides.map((ride) => [ride.id, ride]));
+    const byBike: Record<string, SegmentObservation[]> = {};
+    for (const effort of observations) {
+      const ride = byRide.get(effort.ride);
+      if (!ride || excludedFromHistory(effort, ride, prefs.choices)) continue;
+      const bike = prefs.assign[ride.id] ?? ride.bike;
+      (byBike[bike] ??= []).push(effort);
+    }
+    return byBike;
+  }, [observations, historyRides, prefs.assign, prefs.choices]);
   const shown = rides.filter((r) => active.includes(bikeFor(r)) || !bikeFor(r));
   const pendingRides = shown.filter((r) => !r.windows.length && !r.issue);
   const hasWorkspace = live || rides.length > 0;
@@ -222,9 +255,9 @@ function App() {
   useEffect(() => {
     engine.current?.postMessage({
       type: "plan",
-      plan: { course, power, speed, weather },
+      plan: { course, power, speed, weather, segmentHistory: historyByBike },
     });
-  }, [course, power, speed, weather]);
+  }, [course, power, speed, weather, historyByBike]);
   async function run(fn: () => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -355,7 +388,7 @@ function App() {
       },
     }));
   }
-  function chooseCourse(c: Course) {
+  function chooseCourse(c: PlannedCourse) {
     setCourse(c);
     setWeather([calm]);
     setStatus("");
@@ -363,17 +396,7 @@ function App() {
   async function forecast() {
     if (!when || !course?.located)
       throw Error("Load a route and choose a departure time first.");
-    const time = new Date(when);
-    const data = await Promise.all(
-      [1 / 6, 1 / 2, 5 / 6].map((f) =>
-        weatherAt(
-          course.points[Math.floor((course.points.length - 1) * f)],
-          time,
-          false,
-        ),
-      ),
-    );
-    setWeather(data);
+    setWeather(await courseWeather(course, new Date(when), false));
   }
   const total = shown.reduce(
     (n, r) => n + r.windows.filter((w) => selected(w, prefs)).length,
@@ -853,6 +876,38 @@ function App() {
                 </span>
               </div>
               <TargetPower value={power} onChange={setPower} />
+              {live && course.stravaId && (
+                <div className="segment-history">
+                  <label className="interval">
+                    <input
+                      type="checkbox"
+                      checked={useHistory}
+                      onChange={(event) => setUseHistory(event.target.checked)}
+                    />
+                    Use my efforts on this segment
+                  </label>
+                  {useHistory && (
+                    <>
+                      <small role="status">
+                        {history?.error
+                          ? history.error
+                          : (history?.checked ?? 0) < historyRides.length
+                            ? `Searching synced rides (${history?.checked ?? 0} of ${historyRides.length})…`
+                            : !active.length
+                              ? "Select a bike to search its rides."
+                              : "Matching solo efforts with recorded power and similar weather get the most weight."}
+                        {!!history?.missingWeather &&
+                          ` Weather unavailable for ${history.missingWeather} matching ${history.missingWeather === 1 ? "effort" : "efforts"}.`}
+                      </small>
+                      {(history?.error || (historyComplete && history.missingWeather > 0)) && (
+                        <button className="import-shortcut" onClick={retryHistory}>
+                          Retry search
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               {results.map((r) => (
                 <div className="timing" key={r.id}>
                   <span>{allBikes.find((b) => b.id === r.id)?.name}</span>
@@ -863,6 +918,14 @@ function App() {
                       power-error sensitivity
                     </small>
                   )}
+                  {live && course.stravaId && useHistory && r.model &&
+                    (r.historyEfforts || historyComplete) && (
+                      <small>
+                        {r.historyEfforts
+                          ? `Weighted using ${r.historyEfforts} past ${r.historyEfforts === 1 ? "effort" : "efforts"} on this segment`
+                          : "Using bike calibration. No comparable segment efforts found."}
+                      </small>
+                    )}
                   {!r.model && (
                     <small>
                       Select more usable laps or rides to fit this bike.

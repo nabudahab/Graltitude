@@ -43,6 +43,34 @@ export function included(unit: Window, choices: Record<string, boolean>) {
   );
 }
 
+export function excludedFromHistory(
+  effort: Pick<Lap, "start" | "end">,
+  ride: Pick<Ride, "id" | "windows">,
+  choices: Record<string, boolean>,
+) {
+  const whole = ride.id + ":whole";
+  const lapPrefix = ride.id + ":lap:";
+  const legacyPrefix = ride.id + "-";
+  function overlaps(id: string) {
+    if (id === whole) return true;
+    if (!id.startsWith(lapPrefix)) return false;
+    const [start, end] = id.slice(lapPrefix.length).split("-").map(Number);
+    return start < effort.end && end > effort.start;
+  }
+  return Object.entries(choices).some(([id, keep]) => {
+    if (keep) return false;
+    if (overlaps(id)) return true;
+    // Until a ride is analyzed, the extent of an old exclusion is unknown.
+    if (ride.windows.length || !id.startsWith(legacyPrefix)) return false;
+    const index = id.slice(legacyPrefix.length);
+    return /^\d+$/.test(index) && Number(index) < effort.end;
+  }) || ride.windows.some((window) =>
+    choices[window.id] === undefined &&
+    previouslyExcluded(window, choices) &&
+    overlaps(window.id),
+  );
+}
+
 function legacyExclusions(
   ride: string,
   choices: Record<string, boolean>,

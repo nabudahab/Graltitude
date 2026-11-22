@@ -173,6 +173,41 @@ test("Strava session lifecycle", async (t) => {
     eligible: false, issue: "No measured power",
   });
   assert.equal((await call("/rides/99", { headers })).status, 403);
+  await t.test("ride history reads only owned activity metadata and returns usable powered efforts", async (t) => {
+    const effort = {
+      segment: { id: 21 },
+      device_watts: true,
+      average_watts: 240,
+      elapsed_time: 250,
+      moving_time: 249,
+      start_date: "2026-11-01T08:00:00Z",
+      start_index: 100,
+      end_index: 350,
+    };
+    const paths: string[] = [];
+    t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      paths.push(url.pathname);
+      assert.equal(url.search, "?include_all_efforts=true");
+      return Response.json({
+        athlete: { id: url.pathname.endsWith("/12") ? 7 : 99 },
+        device_watts: true,
+        segment_efforts: [
+          effort,
+          { ...effort, device_watts: false },
+          { ...effort, moving_time: 200 },
+          { ...effort, end_index: 99 },
+          { ...effort, segment: undefined },
+        ],
+      });
+    });
+    assert.equal((await call("/rides/12/segment-efforts")).status, 401);
+    assert.equal((await call("/rides/99/segment-efforts", { headers })).status, 403);
+    assert.deepEqual(await (await call("/rides/12/segment-efforts", { headers })).json(), {
+      efforts: [{ segment: "21", watts: 240, seconds: 250, date: effort.start_date, start: 100, end: 350 }],
+    });
+    assert.deepEqual(paths, ["/api/v3/activities/99", "/api/v3/activities/12"]);
+  });
   await t.test("ride pages filter before gear lookups and paginate raw activities", async (t) => {
     const activity = { id: 1, sport_type: "Ride", gear_id: "b3", average_watts: 190 };
     const calls: string[] = [];

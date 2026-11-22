@@ -1,4 +1,4 @@
-import type { Point, Weather } from "../../../packages/physics/index";
+import type { Course, Point, Weather } from "../../../packages/physics/index";
 type Hourly = {
   time: string[];
   wind_speed_10m: number[];
@@ -56,4 +56,21 @@ export async function weatherAt(
       (287.05 * (273.15 + data.temperature_2m[i])),
     wet: data.precipitation[i] > 0.1,
   };
+}
+
+export function courseWeather(
+  course: Course,
+  when: Date,
+  historical: boolean,
+  seconds = 0,
+) {
+  return Promise.all(
+    [1 / 6, 1 / 2, 5 / 6].map((fraction) =>
+      weatherAt(
+        course.points[Math.floor((course.points.length - 1) * fraction)],
+        new Date(when.getTime() + seconds * fraction * 1000),
+        historical,
+      ),
+    ),
+  );
 }

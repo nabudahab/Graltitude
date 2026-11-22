@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { api, apiBase, connect } from "./api";
-import { parseGpx, segmentId, stravaCourse } from "./course";
-import type { Course } from "../../../packages/physics/index";
+import { parseGpx, segmentId, stravaCourse, type PlannedCourse } from "./course";
 import type { Streams } from "./streams";
 
 type Starred = { id: string; name: string };
 type Props = {
   live: boolean;
   busy: boolean;
-  choose: (course: Course) => void;
+  choose: (course: PlannedCourse) => void;
   run: (fn: () => Promise<void>) => Promise<void>;
 };
 export function SegmentImport({ live, busy, choose, run }: Props) {
@@ -32,7 +31,7 @@ export function SegmentImport({ live, busy, choose, run }: Props) {
   }
   async function load(id: string) {
     const streams = await api<Streams & { name?: string }>("/segments/" + id);
-    choose(stravaCourse(streams.name || "Strava segment " + id, streams));
+    choose(stravaCourse(streams.name || "Strava segment " + id, streams, id));
   }
   async function browse() {
     const next = page + 1;

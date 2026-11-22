@@ -41,6 +41,8 @@ npm run dev
 
 Open the local URL Vite prints. Use the ride title to review its laps or whole-ride effort. Enter the combined mass of rider, bike and kit for each bike. The model uses the default rolling resistance only when it cannot estimate it from the selected rides. Flat-ground power is available as soon as a bike has a fitted model. To predict a segment time, import a GPX with elevation in the prediction panel or segment planner. With Strava connected, you can also paste a segment URL or ID or choose a starred cycling segment. The planner uses the imported distance, grade and heading for every selected bike, including on segments the rider has never ridden. Each imported segment starts in still air. Choose a departure time and select **Use forecast** to apply local weather.
 
+**Use my efforts on this segment** is on by default for Strava segments. It searches synced solo rides on the selected bikes for exact matches with measured power. Use **Load older rides** in Calibration to expand the search within the 90-day sync window. The planner compares past segment times at their recorded power and historical weather. Similar wind speed, direction, gusts and wet conditions give an effort more influence. The prediction uses the bike calibration when no comparable efforts are available. Turn the option off to compare with the bike-only estimate.
+
 ```sh
 npm test
 npm run build
@@ -68,7 +70,7 @@ Graltitude runs the web app, API and session database on your computer. The brow
 
 Pick one bike and enter the combined mass of you, the bike and your kit. Open a few solo outdoor rides from the last 90 days that recorded power, choose **Analyze ride**, and keep the laps or whole rides you trust checked. Look at **Flat-ground power** and **Calibration and accuracy** for that bike.
 
-To test a prediction, leave one separate ride unchecked. Choose a steady climb from that ride on a calm day, paste its Strava segment URL under **Import segment**, and enter your recorded average watts for that segment. Compare the prediction in still air with your actual segment time. To share feedback, send the segment watts, predicted time and actual time.
+To test a prediction, leave one separate ride unchecked. Choose a steady climb from that ride on a calm day, paste its Strava segment URL under **Import segment**, and enter your recorded average watts for that segment. Turn off **Use my efforts on this segment** to validate the bike calibration. Compare the prediction in still air with your actual segment time. To share feedback, send the segment watts, predicted time and actual time.
 
 ## Deploy the web app
 

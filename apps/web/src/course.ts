@@ -3,6 +3,8 @@ import {
   type Point,
   type Course,
 } from "../../../packages/physics/index.ts";
+export type PlannedCourse = Course & { stravaId?: string };
+
 export function makeCourse(name: string, points: Point[]): Course {
   const kept: Point[] = [];
   let previousDistance = -1;
@@ -49,7 +51,11 @@ type SegmentStreams = {
   altitude?: { data: number[] };
   latlng?: { data: [number, number][] };
 };
-export function stravaCourse(name: string, streams: SegmentStreams): Course {
+export function stravaCourse(
+  name: string,
+  streams: SegmentStreams,
+  stravaId?: string,
+): PlannedCourse {
   const coords = streams.latlng?.data,
     dist = streams.distance?.data,
     alt = streams.altitude?.data;
@@ -63,7 +69,7 @@ export function stravaCourse(name: string, streams: SegmentStreams): Course {
     throw Error(
       "Strava returned an incomplete segment profile. Try a GPX with elevation.",
     );
-  return makeCourse(
+  const course = makeCourse(
     name,
     coords.map((coord, i) => ({
       lat: coord?.[0],
@@ -72,6 +78,7 @@ export function stravaCourse(name: string, streams: SegmentStreams): Course {
       z: alt[i],
     })),
   );
+  return stravaId ? { ...course, stravaId } : course;
 }
 export function parseGpx(xml: string, name: string) {
   const doc = new DOMParser().parseFromString(xml, "application/xml");

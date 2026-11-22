@@ -422,6 +422,15 @@ input[type="range"] {
 .target-power small {
   margin-top: 6px;
 }
+.segment-history {
+  margin-top: 10px;
+}
+.segment-history small {
+  display: block;
+}
+.segment-history button {
+  margin-top: 6px;
+}
 .timing,
 .readout {
   flex-wrap: wrap;

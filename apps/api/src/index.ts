@@ -329,9 +329,10 @@ async function route(req: Request, e: Env, appUrl: string, basePath: string): Pr
       gear,
     });
   }
-  const ride = path.match(/^\/rides\/(\d+)$/);
+  const ride = path.match(/^\/rides\/(\d+)(\/segment-efforts)?$/);
   if (ride) {
     const prefix = "/activities/" + ride[1];
+    const segmentHistory = Boolean(ride[2]);
     type StravaLap = {
       name?: string;
       lap_index?: number;
@@ -343,9 +344,55 @@ async function route(req: Request, e: Env, appUrl: string, basePath: string): Pr
       athlete: { id: number };
       device_watts?: boolean;
       laps?: StravaLap[];
-    }>(prefix);
+      segment_efforts?: {
+        segment?: { id: number };
+        device_watts?: boolean;
+        average_watts: number;
+        elapsed_time: number;
+        moving_time: number;
+        start_date: string;
+        start_index: number;
+        end_index: number;
+      }[];
+    }>(prefix + (segmentHistory ? "?include_all_efforts=true" : ""));
     if (String(meta.athlete.id) !== session.athlete)
       fail(403, "Select one of your own rides.");
+    if (segmentHistory) {
+      const efforts =
+        meta.device_watts === true ? (meta.segment_efforts ?? []) : [];
+      return json({
+        efforts: efforts.flatMap((effort) => {
+          const segment = effort?.segment?.id;
+          if (
+            effort?.device_watts !== true ||
+            !segment ||
+            !Number.isSafeInteger(segment) ||
+            segment < 0 ||
+            !Number.isFinite(effort.average_watts) ||
+            effort.average_watts <= 25 ||
+            !Number.isFinite(effort.elapsed_time) ||
+            !Number.isFinite(effort.moving_time) ||
+            effort.moving_time <= 0 ||
+            effort.moving_time > effort.elapsed_time ||
+            effort.elapsed_time - effort.moving_time > 5 ||
+            !Number.isFinite(Date.parse(effort.start_date)) ||
+            !Number.isInteger(effort.start_index) ||
+            !Number.isInteger(effort.end_index) ||
+            effort.start_index < 0 ||
+            effort.end_index <= effort.start_index
+          )
+            return [];
+          return [{
+            segment: String(segment),
+            watts: effort.average_watts,
+            seconds: effort.elapsed_time,
+            date: effort.start_date,
+            start: effort.start_index,
+            end: effort.end_index,
+          }];
+        }),
+      });
+    }
     if (meta.device_watts !== true)
       return json({ eligible: false, issue: "No measured power" });
     const streams = await strava<{ watts?: { data?: unknown } }>(

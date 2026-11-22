@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { segmentId, stravaCourse } from "../apps/web/src/course.ts";
 import { calculate } from "../apps/web/src/compute.ts";
+import { excludedFromHistory } from "../apps/web/src/streams.ts";
 import { calm, simulate, watts, type Model } from "../packages/physics/index.ts";
 test("segment links and numeric IDs identify a segment independently of rider history", () => {
   for (const s of [
@@ -74,4 +75,63 @@ test("incomplete or reversed segment streams cannot replace the current course",
     { ...profile, altitude: { data: [100, NaN] } },
   ])
     assert.throws(() => stravaCourse("Invalid", bad));
+});
+
+test("exact efforts on the selected bike dominate in similar weather", () => {
+  const course = stravaCourse("North climb", profile, "123");
+  const north = { ...calm, wind: 8, gust: 10, direction: 359 };
+  const south = { ...north, direction: 180 };
+  const effort = {
+    segment: "123",
+    ride: "12",
+    watts: 260,
+    date: "2026-11-01T08:00:00Z",
+    start: 100,
+    end: 350,
+    seconds: simulate(course, model, 260, [north]) * 0.85,
+    weather: [north, north, north],
+  };
+  const plan = {
+    course,
+    power: 220,
+    speed: 30,
+    weather: [{ ...north, direction: 1 }],
+    segmentHistory: {
+      road: [
+        effort,
+        { ...effort, ride: "34", weather: [south], seconds: simulate(course, model, 260, [south]) * 1.1 },
+        { ...effort, segment: "456" },
+      ],
+    },
+  };
+  const bikes = [{ id: "road", model }, { id: "gravel", model }];
+  const [road, gravel] = calculate(bikes, plan);
+  assert.equal(road.historyEfforts, 1);
+  assert.equal(gravel.historyEfforts, 0);
+  assert.ok(Math.abs(road.seconds! / gravel.seconds! - 0.88) < 0.001);
+  assert.equal(road.flat, gravel.flat);
+  assert.ok(road.range![0] < road.seconds! && road.range![1] > road.seconds!);
+
+  const [tailwind] = calculate(bikes, { ...plan, weather: [south] });
+  assert.equal(tailwind.historyEfforts, 1);
+  assert.ok(Math.abs(tailwind.seconds! / simulate(course, model, 220, [south]) - 1.08) < 0.001);
+
+  for (const fallback of [
+    { ...plan, segmentHistory: undefined },
+    { ...plan, weather: [calm] },
+    { ...plan, course: stravaCourse("GPX course", profile) },
+  ]) {
+    const [result] = calculate(bikes, fallback);
+    assert.equal(result.historyEfforts, 0);
+    assert.equal(result.seconds, simulate(fallback.course, model, fallback.power, fallback.weather));
+  }
+});
+
+test("segment history respects explicit overlapping exclusions", () => {
+  const effort = { start: 100, end: 350 };
+  const ride = { id: "12", windows: [] };
+  assert.equal(excludedFromHistory(effort, ride, { "12:whole": false }), true);
+  assert.equal(excludedFromHistory(effort, ride, { "12:lap:300-401": false }), true);
+  assert.equal(excludedFromHistory(effort, ride, { "12:lap:350-401": false }), false);
+  assert.equal(excludedFromHistory(effort, ride, { "34:lap:300-401": false }), false);
 });
