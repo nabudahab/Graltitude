@@ -11,7 +11,7 @@ import {
 import type { Results } from "./compute";
 import PhysicsWorker from "./engine.worker.ts?worker&inline";
 import { sampleBikes, sampleRides } from "./sample";
-import { api, apiBase, connect, resume } from "./api";
+import { api, apiBase, clearSession, connect, resume } from "./api";
 import { importRideGpx } from "./rideGpx";
 import { SegmentImport } from "./SegmentImport";
 import { TargetPower } from "./TargetPower";
@@ -292,7 +292,7 @@ function App() {
         try {
           await load();
         } catch (e) {
-          sessionStorage.removeItem("graltitude-session");
+          clearSession();
           throw e;
         }
       }
@@ -399,7 +399,7 @@ function App() {
             {live
               ? "Strava workspace"
               : portable
-                ? "Local ride files"
+                ? (rides.length ? "Local ride files" : "Portable Ride Lab")
                 : "Sample workspace"}
           </span>
           {(!portable || apiBase) && (
@@ -412,7 +412,7 @@ function App() {
                     try {
                       await api("/logout", {});
                     } finally {
-                      sessionStorage.removeItem("graltitude-session");
+                      clearSession();
                       location.reload();
                     }
                   } else await connect();
@@ -459,47 +459,58 @@ function App() {
           <div className="work">
             {portable && !live && tab === "rides" && (
               <section className="panel">
-                <h2>Import your rides</h2>
-                <p>
-                  Open a ride on the Strava website and choose{" "}
-                  <b>… → Export GPX</b>. Pick files recorded with a power meter
-                  on the same bike.
-                </p>
-                <label className="field">
-                  Bike name
-                  <input
-                    value={fileBike}
-                    onChange={(e) => setFileBike(e.target.value)}
-                  />
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={groupFiles}
-                    onChange={(e) => setGroupFiles(e.target.checked)}
-                  />{" "}
-                  Group rides
-                </label>
-                <div className="actions">
-                  <label className="file">
-                    Choose ride files
+                <h2>Sync your Strava rides</h2>
+                {apiBase ? (
+                  <p>Select <b>Connect with Strava</b> and authorize activity access.
+                    Ride Lab loads recent rides with recorded power and groups them by bike.</p>
+                ) : (
+                  <p>In the extracted Graltitude folder, open <b>Strava for Windows.cmd</b>,{" "}
+                    <b>Strava for Mac.command</b> or <b>Strava for Linux.sh</b>.
+                    Then select <b>Connect with Strava</b> in the browser.</p>
+                )}
+                <details open={apiBase ? undefined : true}>
+                  <summary>Import GPX ride files</summary>
+                  <p>
+                    Open a ride on the Strava website and choose{" "}
+                    <b>… → Export GPX</b>. Pick files recorded with a power meter
+                    on the same bike.
+                  </p>
+                  <label className="field">
+                    Bike name
                     <input
-                      type="file"
-                      accept=".gpx"
-                      multiple
-                      disabled={busy || !fileBike.trim()}
-                      onChange={(e) => {
-                        const files = Array.from(e.currentTarget.files ?? []);
-                        e.currentTarget.value = "";
-                        void run(() => importFiles(files));
-                      }}
+                      value={fileBike}
+                      onChange={(e) => setFileBike(e.target.value)}
                     />
                   </label>
-                </div>
-                <small>
-                  Ride files stay on this laptop. Weather lookups use rounded
-                  locations and dates. Reopen the files after closing the app.
-                </small>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={groupFiles}
+                      onChange={(e) => setGroupFiles(e.target.checked)}
+                    />{" "}
+                    Group rides
+                  </label>
+                  <div className="actions">
+                    <label className="file">
+                      Choose ride files
+                      <input
+                        type="file"
+                        accept=".gpx"
+                        multiple
+                        disabled={busy || !fileBike.trim()}
+                        onChange={(e) => {
+                          const files = Array.from(e.currentTarget.files ?? []);
+                          e.currentTarget.value = "";
+                          void run(() => importFiles(files));
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <small>
+                    Ride files stay on this laptop. Weather lookups use rounded
+                    locations and dates. Reopen the files after closing the app.
+                  </small>
+                </details>
               </section>
             )}
             <section className="panel">
@@ -937,7 +948,7 @@ function App() {
       </main>
       <footer>
         <span>Graltitude · Ride lab</span>
-        {portable && apiBase && <a href="/desktop/settings">Strava settings</a>}
+        {portable && apiBase === "." && <a href="/desktop/settings">Strava settings</a>}
         <span>
           {live
             ? "Powered by Strava"

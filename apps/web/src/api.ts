@@ -6,12 +6,19 @@ const desktopApi =
         ?.content
     : undefined;
 export const apiBase = (configuredApi || desktopApi)?.replace(/\/$/, "");
+// Keep laptop sessions separate when different shared packages use the same local port.
+const scope = desktopApi && desktopApi !== "." ? "/" + desktopApi : "";
+const sessionKey = "graltitude-session" + scope;
+const verifierKey = "graltitude-verifier" + scope;
+export function clearSession() {
+  sessionStorage.removeItem(sessionKey);
+}
 export async function api<T>(path: string, post?: unknown): Promise<T> {
   if (!apiBase)
     throw Error(
       "Live sync needs a configured Strava Worker. The sample workspace is ready to use.",
     );
-  const session = sessionStorage.getItem("graltitude-session");
+  const session = sessionStorage.getItem(sessionKey);
   const r = await fetch(apiBase + path, {
     method: post === undefined ? "GET" : "POST",
     headers: {
@@ -38,7 +45,7 @@ export async function connect() {
   const challenge = Array.from(new Uint8Array(digest), (n) =>
     n.toString(16).padStart(2, "0"),
   ).join("");
-  sessionStorage.setItem("graltitude-verifier", verifier);
+  sessionStorage.setItem(verifierKey, verifier);
   location.assign(apiBase + "/auth/start?challenge=" + challenge);
 }
 export async function resume() {
@@ -49,13 +56,13 @@ export async function resume() {
   if (frag.get("auth") === "declined")
     throw Error("Strava access was declined.");
   if (code) {
-    const verifier = sessionStorage.getItem("graltitude-verifier");
+    const verifier = sessionStorage.getItem(verifierKey);
     const data = await api<{ session: string }>("/auth/exchange", {
       code,
       verifier,
     });
-    sessionStorage.removeItem("graltitude-verifier");
-    sessionStorage.setItem("graltitude-session", data.session);
+    sessionStorage.removeItem(verifierKey);
+    sessionStorage.setItem(sessionKey, data.session);
   }
-  return !!sessionStorage.getItem("graltitude-session");
+  return !!sessionStorage.getItem(sessionKey);
 }

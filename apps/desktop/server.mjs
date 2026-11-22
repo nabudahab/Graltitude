@@ -7,14 +7,17 @@ import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import { parseEnv } from "node:util";
 import worker from "../api/src/index.ts";
+import { syncOrigin } from "./sync-origin.mjs";
 
 const port = 4177;
 const host = "127.0.0.1:" + port;
 const origin = "http://" + host;
 const root = new URL("../../", import.meta.url);
+const sharedConfig = await readOptional(new URL("strava-sync.json", root));
+const sharedApi = sharedConfig ? syncOrigin(JSON.parse(sharedConfig).apiOrigin) : "";
 const html = (await readFile(new URL("Graltitude.html", root), "utf8")).replace(
   "<head>",
-  '<head><meta name="graltitude-api" content=".">',
+  `<head><meta name="graltitude-api" content="${sharedApi || "."}">`,
 );
 const settingsDir = join(
   process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
@@ -29,8 +32,8 @@ async function readOptional(path) {
     return "";
   }
 }
-const saved = JSON.parse((await readOptional(settingsFile)) || "{}");
-const dev = parseEnv(await readOptional(new URL("apps/api/.dev.vars", root)));
+const saved = sharedApi ? {} : JSON.parse((await readOptional(settingsFile)) || "{}");
+const dev = sharedApi ? {} : parseEnv(await readOptional(new URL("apps/api/.dev.vars", root)));
 const db = new DatabaseSync(":memory:");
 db.exec(
   await readFile(
@@ -101,6 +104,7 @@ async function route(req) {
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
+  if (sharedApi) return new Response("Unknown endpoint.", { status: 404 });
   const challenge = url.searchParams.get("challenge") ?? "";
   if (req.method === "GET" && url.pathname === "/desktop/settings")
     return setup("");
