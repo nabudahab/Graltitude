@@ -63,6 +63,15 @@ test("Strava session lifecycle", async (t) => {
         expires_at: Math.floor(Date.now() / 1000) + 1000,
         athlete: { id: 7 },
       });
+    if (u.includes("/segments/starred?"))
+      return Response.json([
+        { id: 21, name: "Starred climb", activity_type: "Ride" },
+        { id: 23, name: "Trail run", activity_type: "Run" },
+      ]);
+    if (u.endsWith("/segments/21"))
+      return Response.json({ name: "Starred climb" });
+    if (u.includes("/segments/21/streams?"))
+      return Response.json({ altitude: { data: [300, 400] } });
     if (u.endsWith("/gear/b2")) return Response.json({ name: "Road" });
     if (u.includes("/athlete/activities"))
       return Response.json([
@@ -104,6 +113,15 @@ test("Strava session lifecycle", async (t) => {
     athlete: string;
     rides: { bike: string }[];
   };
+  assert.equal((await call("/segments/21")).status, 401);
+  assert.deepEqual(
+    await (await call("/segments/starred?page=1", { headers })).json(),
+    { segments: [{ id: "21", name: "Starred climb" }], more: false },
+  );
+  assert.deepEqual(await (await call("/segments/21", { headers })).json(), {
+    name: "Starred climb",
+    altitude: { data: [300, 400] },
+  });
   assert.equal(rides.athlete, "7");
   assert.equal(rides.rides[0].bike, "b2");
   assert.equal((await call("/rides/99", { headers })).status, 403);

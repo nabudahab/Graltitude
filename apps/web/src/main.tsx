@@ -11,7 +11,7 @@ import {
 import type { Results } from "./compute";
 import { sampleBikes, sampleRides, exampleCourse } from "./sample";
 import { api, connect, resume } from "./api";
-import { makeCourse, parseGpx } from "./course";
+import { SegmentImport } from "./SegmentImport";
 import { weatherAt } from "./weather";
 import { summarize, type Streams } from "./streams";
 import "./style.css";
@@ -160,8 +160,7 @@ function App() {
     [speed, setSpeed] = useState(30),
     [weather, setWeather] = useState<Weather[]>([calm]),
     [when, setWhen] = useState("");
-  const [segment, setSegment] = useState(""),
-    [results, setResults] = useState<Results>([]),
+  const [results, setResults] = useState<Results>([]),
     [newBike, setNewBike] = useState("");
   const [tab, setTab] = useState<"rides" | "plan">("rides"),
     [more, setMore] = useState(false),
@@ -319,29 +318,6 @@ function App() {
     setCourse(c);
     setWeather([calm]);
     setStatus("");
-  }
-  async function getSegment() {
-    const id = segment
-      .trim()
-      .match(
-        /^(?:https?:\/\/(?:www\.)?strava\.com\/segments\/)?(\d+)\/?(?:\?.*)?$/,
-      )?.[1];
-    if (!id) throw Error("Enter a Strava segment URL or numeric ID.");
-    const s = await api<Streams>("/segments/" + id);
-    const { latlng, altitude, distance } = s;
-    if (!latlng || !altitude || !distance)
-      throw Error("Segment has no usable elevation profile.");
-    chooseCourse(
-      makeCourse(
-        "Strava segment " + id,
-        latlng.data.map(([lat, lon], i) => ({
-          lat,
-          lon,
-          z: altitude.data[i],
-          d: distance.data[i],
-        })),
-      ),
-    );
   }
   async function forecast() {
     if (!when || !course.located)
@@ -643,52 +619,16 @@ function App() {
               </section>
             ) : (
               <section className="panel">
-                <div className="kicker">ROUTE & CONDITIONS</div>
-                <h2>Segment planner</h2>
-                <p className="muted">
-                  Use a climb with an elevation profile. The sample ascent uses
-                  neutral weather.
+                <SegmentImport
+                  live={live}
+                  busy={busy}
+                  run={run}
+                  choose={chooseCourse}
+                />
+                <p className="current-segment" role="status">
+                  Planning for <strong>{course.name}</strong> ·{" "}
+                  <a href="#prediction">View prediction</a>
                 </p>
-                <div className="actions">
-                  <label className="file">
-                    Load GPX
-                    <input
-                      type="file"
-                      accept=".gpx"
-                      disabled={busy}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f)
-                          void run(async () =>
-                            chooseCourse(parseGpx(await f.text(), f.name)),
-                          );
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <button
-                    disabled={busy}
-                    onClick={() => chooseCourse(exampleCourse)}
-                  >
-                    Sample ascent
-                  </button>
-                </div>
-                {live && (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void run(getSegment);
-                    }}
-                  >
-                    <input
-                      placeholder="Strava segment URL or ID"
-                      aria-label="Strava segment"
-                      value={segment}
-                      onChange={(e) => setSegment(e.target.value)}
-                    />
-                    <button disabled={busy}>Load</button>
-                  </form>
-                )}
                 <label className="field">
                   Departure time (local)
                   <input
@@ -768,8 +708,21 @@ function App() {
             </section>
           </div>
           <aside>
-            <section className="predict">
-              <div className="kicker">SEGMENT PREDICTION</div>
+            <section className="predict" id="prediction">
+              <div className="head">
+                <div className="kicker">SEGMENT PREDICTION</div>
+                <button
+                  className="import-shortcut"
+                  onClick={() => {
+                    setTab("plan");
+                    requestAnimationFrame(() =>
+                      document.getElementById("segment-import")?.focus(),
+                    );
+                  }}
+                >
+                  Import segment
+                </button>
+              </div>
               <h2>{course.name}</h2>
               <Profile course={course} />
               <div className="stats">

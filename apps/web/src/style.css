@@ -571,3 +571,24 @@ footer {
     grid-row: 1/3;
   }
 }
+.predict .import-shortcut {
+  background: transparent;
+  border-color: #79998b;
+  color: #f6f8ed;
+  font-size: 12px;
+}
+.predict .head {
+  margin-bottom: 8px;
+}
+.importer input:not([type="file"]),
+.importer select {
+  flex: 1;
+  min-width: min(190px, 100%);
+}
+.current-segment {
+  font-size: 13px;
+  line-height: 1.6;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  color: var(--muted);
+}

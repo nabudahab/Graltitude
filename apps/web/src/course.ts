@@ -2,23 +2,76 @@ import {
   distance,
   type Point,
   type Course,
-} from "../../../packages/physics/index";
+} from "../../../packages/physics/index.ts";
 export function makeCourse(name: string, points: Point[]): Course {
   const kept: Point[] = [];
-  for (const p of points) {
+  let previousDistance = -1;
+  for (const [i, p] of points.entries()) {
     if (
-      !Object.values(p).every(Number.isFinite) ||
+      ![p.lat, p.lon, p.z, p.d].every(Number.isFinite) ||
       Math.abs(p.lat) > 90 ||
-      Math.abs(p.lon) > 180
+      Math.abs(p.lon) > 180 ||
+      p.d < 0 ||
+      p.d < previousDistance
     )
-      throw Error("Invalid route coordinates or elevation.");
-    if (!kept.length || p.d - kept[kept.length - 1].d >= 50) kept.push(p);
+      throw Error("Invalid segment coordinates, distance or elevation.");
+    previousDistance = p.d;
+    const point = { ...p, d: p.d - points[0].d };
+    const last = kept.at(-1);
+    if (
+      !last ||
+      point.d - last.d >= 50 ||
+      (i === points.length - 1 && point.d > last.d)
+    )
+      kept.push(point);
   }
-  const end = points.at(-1);
-  if (end && kept.length && end.d - kept.at(-1)!.d > 1) kept.push(end);
   if (kept.length < 2)
-    throw Error("The route needs at least two distinct points with elevation.");
+    throw Error(
+      "The segment needs a positive distance and an elevation profile.",
+    );
   return { name, points: kept, located: true };
+}
+
+export function segmentId(input: string): string {
+  const value = input.trim();
+  const match = value.match(
+    /^(?:(?:https?:\/\/)?(?:www\.)?strava\.com\/segments\/)?([1-9]\d*)\/?(?:[?#].*)?$/i,
+  );
+  if (!match)
+    throw Error(
+      "Enter a numeric segment ID or a strava.com/segments/ link. You can also choose a starred segment.",
+    );
+  return match[1];
+}
+
+type SegmentStreams = {
+  distance?: { data: number[] };
+  altitude?: { data: number[] };
+  latlng?: { data: [number, number][] };
+};
+export function stravaCourse(name: string, streams: SegmentStreams): Course {
+  const coords = streams.latlng?.data,
+    dist = streams.distance?.data,
+    alt = streams.altitude?.data;
+  if (
+    !Array.isArray(coords) ||
+    !Array.isArray(dist) ||
+    !Array.isArray(alt) ||
+    coords.length !== dist.length ||
+    coords.length !== alt.length
+  )
+    throw Error(
+      "Strava returned an incomplete segment profile. Try a GPX with elevation.",
+    );
+  return makeCourse(
+    name,
+    coords.map((coord, i) => ({
+      lat: coord?.[0],
+      lon: coord?.[1],
+      d: dist[i],
+      z: alt[i],
+    })),
+  );
 }
 export function parseGpx(xml: string, name: string) {
   const doc = new DOMParser().parseFromString(xml, "application/xml");

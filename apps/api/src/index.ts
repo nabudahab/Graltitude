@@ -339,15 +339,29 @@ async function route(req: Request, e: Env): Promise<Response> {
       ),
     });
   }
+  if (path === "/segments/starred") {
+    const page = Number(u.searchParams.get("page") ?? 1);
+    if (!Number.isSafeInteger(page) || page < 1)
+      fail(400, "Invalid segment page.");
+    const items = await strava<
+      { id: number; name: string; activity_type: string }[]
+    >("/segments/starred?per_page=30&page=" + page);
+    return json({
+      segments: items
+        .filter((s) => s.activity_type === "Ride")
+        .map((s) => ({ id: String(s.id), name: s.name })),
+      more: items.length === 30,
+    });
+  }
   const segment = path.match(/^\/segments\/(\d+)$/);
-  if (segment)
-    return json(
-      await strava(
-        "/segments/" +
-          segment[1] +
-          "/streams?keys=distance,altitude,latlng&key_by_type=true",
-      ),
+  if (segment) {
+    const prefix = "/segments/" + segment[1];
+    const metadata = await strava<{ name: string }>(prefix);
+    const streams = await strava<Record<string, unknown>>(
+      prefix + "/streams?keys=distance,altitude,latlng&key_by_type=true",
     );
+    return json({ ...streams, name: metadata.name });
+  }
   fail(404, "Unknown endpoint.");
 }
 export default {
